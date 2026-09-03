@@ -562,6 +562,18 @@ namespace CmdNext.Service.Services
         /// </summary>
         private async Task<List<(Entry, double, string)>> TextSearchAsync(IQueryable<Entry> q, string term, int limit)
         {
+            // An exact tag match (e.g. searching "english" finds entries tagged "english") is
+            // index-backed by the existing GIN index on Tags, and ranked above fuzzy text
+            // matches since it's a deliberate, discrete keyword rather than prose to score by
+            // relevance. Tags aren't folded into the tsvector expression below: Postgres's
+            // array_to_string isn't IMMUTABLE, so it can't sit in that functional GIN index
+            // without a custom wrapper function — a separate exact-match check is simpler and
+            // just as effective for whole-word tags.
+            var tagHits = await q
+                .Where(e => e.Tags.Contains(term.ToLower()))
+                .Take(limit)
+                .ToListAsync();
+
             // A generated `tsvector` expression over Title + Body is covered by a GIN index
             // (see migration); ts_rank orders by relevance. websearch_to_tsquery handles quoted
             // phrases and plain multi-word input.
@@ -578,19 +590,24 @@ namespace CmdNext.Service.Services
                 .Take(limit)
                 .ToList();
 
-            if (ftsQuery.Count > 0)
+            var textHits = ftsQuery.Count == 0
+                ? await q
+                    .Where(e => EF.Functions.TrigramsSimilarity(e.Title, term) > 0.2
+                             || EF.Functions.TrigramsSimilarity(e.Body, term) > 0.15)
+                    .OrderByDescending(e => EF.Functions.TrigramsSimilarity(e.Title, term))
+                    .Take(limit)
+                    .ToListAsync()
+                : ftsQuery.Select(x => x.Entry).ToList();
+
+            var results = new List<(Entry, double, string)>(
+                tagHits.Select(e => (e, 2.0, BuildSnippet(e.Body, term))));
+            var seen = tagHits.Select(e => e.Id).ToHashSet();
+            foreach (var e in textHits)
             {
-                return ftsQuery.Select(x => (x.Entry, (double)x.Rank, BuildSnippet(x.Entry.Body, term))).ToList();
+                if (seen.Add(e.Id)) results.Add((e, 1.0, BuildSnippet(e.Body, term)));
             }
 
-            var trigramHits = await q
-                .Where(e => EF.Functions.TrigramsSimilarity(e.Title, term) > 0.2
-                         || EF.Functions.TrigramsSimilarity(e.Body, term) > 0.15)
-                .OrderByDescending(e => EF.Functions.TrigramsSimilarity(e.Title, term))
-                .Take(limit)
-                .ToListAsync();
-
-            return trigramHits.Select(e => (e, 1.0, BuildSnippet(e.Body, term))).ToList();
+            return results.Take(limit).ToList();
         }
 
         private async Task<List<(Entry, double, string)>> SemanticSearchAsync(
