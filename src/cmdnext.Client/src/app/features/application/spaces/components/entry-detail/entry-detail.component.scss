@@ -63,6 +63,14 @@
   }
 
   textarea { resize: vertical; }
+
+  .body-field {
+    min-height: 60vh;
+    max-height: 80vh;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+  }
 }
 
 .field-row {
