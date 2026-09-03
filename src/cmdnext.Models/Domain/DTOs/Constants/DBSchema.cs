@@ -6,5 +6,7 @@ namespace CmdNext.Models.Domain.DTOs.Constants
         public const string Identity = "identity";
 
         public const string Finance = "finance";
+
+        public const string Spaces = "spaces";
     }
 }

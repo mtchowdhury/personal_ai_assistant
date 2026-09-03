@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using CmdNext.Models.Domain.Model.App.Ai;
 using CmdNext.Models.Domain.Model.App.Admin;
 using CmdNext.Models.Domain.Model.App.Finance;
+using CmdNext.Models.Domain.Model.App.Spaces;
 
 namespace CmdNext.Repository.Implementation
 {
@@ -27,6 +28,12 @@ namespace CmdNext.Repository.Implementation
         public DbSet<ExpenseItem> ExpenseItems { get; set; }
         public DbSet<Budget> Budgets { get; set; }
 
+        // Spaces Schema
+        public DbSet<Space> Spaces { get; set; }
+        public DbSet<Node> Nodes { get; set; }
+        public DbSet<Entry> Entries { get; set; }
+        public DbSet<Attachment> Attachments { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -44,6 +51,11 @@ namespace CmdNext.Repository.Implementation
             modelBuilder.Entity<Expense>().ToTable("Expenses", "finance");
             modelBuilder.Entity<ExpenseItem>().ToTable("ExpenseItems", "finance");
             modelBuilder.Entity<Budget>().ToTable("Budgets", "finance");
+
+            modelBuilder.Entity<Space>().ToTable("Spaces", "spaces");
+            modelBuilder.Entity<Node>().ToTable("Nodes", "spaces");
+            modelBuilder.Entity<Entry>().ToTable("Entries", "spaces");
+            modelBuilder.Entity<Attachment>().ToTable("Attachments", "spaces");
 
             // Configure relationships
             modelBuilder.Entity<AiChatSession>()
@@ -99,6 +111,68 @@ namespace CmdNext.Repository.Implementation
             modelBuilder.Entity<ExpenseItem>().HasIndex(i => i.ExpenseId);
             modelBuilder.Entity<ExpenseItem>().HasIndex(i => i.CanonicalName);
             modelBuilder.Entity<Budget>().HasIndex(b => new { b.UserId, b.CategoryId }).IsUnique();
+
+            // Spaces relationships
+            modelBuilder.Entity<Node>()
+                .HasOne(n => n.Parent)
+                .WithMany()
+                .HasForeignKey(n => n.ParentId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Entry>()
+                .HasOne(e => e.Space)
+                .WithMany()
+                .HasForeignKey(e => e.SpaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Entry>()
+                .HasOne(e => e.Node)
+                .WithMany()
+                .HasForeignKey(e => e.NodeId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Node>()
+                .HasOne(n => n.Space)
+                .WithMany()
+                .HasForeignKey(n => n.SpaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Attachment>()
+                .HasOne(a => a.Space)
+                .WithMany()
+                .HasForeignKey(a => a.SpaceId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Attachment>()
+                .HasOne(a => a.Node)
+                .WithMany()
+                .HasForeignKey(a => a.NodeId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Attachment>()
+                .HasOne(a => a.Entry)
+                .WithMany()
+                .HasForeignKey(a => a.EntryId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Tags as a native text[] column
+            modelBuilder.Entity<Entry>().Property(e => e.Tags).HasColumnType("text[]");
+
+            // Spaces indexes
+            modelBuilder.Entity<Space>().HasIndex(s => s.UserId);
+            modelBuilder.Entity<Space>().HasIndex(s => new { s.UserId, s.Slug }).IsUnique();
+
+            modelBuilder.Entity<Node>().HasIndex(n => new { n.SpaceId, n.Path }).IsUnique();
+            modelBuilder.Entity<Node>().HasIndex(n => n.ParentId);
+
+            modelBuilder.Entity<Entry>().HasIndex(e => new { e.SpaceId, e.Type, e.OccurredOn });
+            modelBuilder.Entity<Entry>().HasIndex(e => e.NodeId);
+            modelBuilder.Entity<Entry>().HasIndex(e => e.UserId);
+            modelBuilder.Entity<Entry>().HasIndex(e => e.Tags).HasMethod("gin");
+
+            modelBuilder.Entity<Attachment>().HasIndex(a => a.SpaceId);
+            modelBuilder.Entity<Attachment>().HasIndex(a => a.NodeId);
+            modelBuilder.Entity<Attachment>().HasIndex(a => a.EntryId);
         }
     }
 }

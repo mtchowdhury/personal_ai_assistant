@@ -5,6 +5,7 @@ using CmdNext.Service.Services;
 using CmdNext.Service.Tools;
 using CmdNext.Service.Helpers;
 using CmdNext.AI.Service.Generic.Contracts;
+using Microsoft.Extensions.Hosting;
 
 namespace CmdNext.Service
 {
@@ -24,6 +25,10 @@ namespace CmdNext.Service
             // Configure Finance Service
             services.AddScoped<IFinanceService, FinanceService>();
             services.AddScoped<IFinanceAiToolsFactory, FinanceAiToolsFactory>();
+
+            // Configure Spaces Service
+            services.AddScoped<ISpaceService, SpaceService>();
+            services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
 
             // Configure Crypto Helper
             var cryptoSettings = configuration.GetSection("CryptoSettings");

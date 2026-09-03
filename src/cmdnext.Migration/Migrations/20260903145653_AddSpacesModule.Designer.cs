@@ -3,6 +3,7 @@ using System;
 using CmdNext.Repository.Implementation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace CmdNext.EF.Migration.Migrations
 {
     [DbContext(typeof(CmdNextDbContext))]
-    partial class CmdNextDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260903145653_AddSpacesModule")]
+    partial class AddSpacesModule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
