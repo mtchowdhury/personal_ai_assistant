@@ -7,11 +7,12 @@ import {
 } from '@features/application/spaces/services/spaces.service';
 import { NotificationService } from '@core/services/notification.service';
 import { LoadingSpinnerComponent } from '@core/components/loading-spinner/loading-spinner.component';
+import { ChatMarkdownPipe } from '@shared/pipes/chat-markdown.pipe';
 
 @Component({
   selector: 'app-entry-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, LoadingSpinnerComponent],
+  imports: [CommonModule, FormsModule, LoadingSpinnerComponent, ChatMarkdownPipe],
   templateUrl: './entry-detail.component.html',
   styleUrls: ['./entry-detail.component.scss']
 })
@@ -21,6 +22,9 @@ export class EntryDetailComponent implements OnInit {
   isNew = false;
   isLoading = true;
   isSaving = false;
+
+  /** New entries start in edit mode (nothing to render yet); existing ones open rendered. */
+  isEditingBody = false;
 
   space: Space | null = null;
   entryTypes: EntryTypeSchema[] = [];
@@ -65,6 +69,7 @@ export class EntryDetailComponent implements OnInit {
         this.onTypeChange();
 
         if (this.isNew) {
+          this.isEditingBody = true;
           this.isLoading = false;
         } else {
           this.loadEntry();
@@ -81,6 +86,7 @@ export class EntryDetailComponent implements OnInit {
     this.spacesService.getEntry(this.spaceId, this.entryId!).subscribe({
       next: (entry) => {
         this.applyEntry(entry);
+        this.isEditingBody = false;
         this.isLoading = false;
         this.loadAttachments();
       },
@@ -111,6 +117,10 @@ export class EntryDetailComponent implements OnInit {
       next: (list) => (this.attachments = list),
       error: () => {}
     });
+  }
+
+  toggleEditBody(): void {
+    this.isEditingBody = !this.isEditingBody;
   }
 
   currentTypeSchema(): EntryTypeSchema | undefined {
@@ -179,6 +189,7 @@ export class EntryDetailComponent implements OnInit {
         next: (entry) => {
           this.isSaving = false;
           this.applyEntry(entry);
+          this.isEditingBody = false;
           this.notification.showSuccess('Entry saved.');
         },
         error: () => {

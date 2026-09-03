@@ -55,8 +55,16 @@
     </section>
 
     <section class="field-group">
-      <label for="body">Body</label>
-      <textarea id="body" class="body-field" rows="14" [(ngModel)]="body" placeholder="Markdown notes…"></textarea>
+      <div class="body-label-row">
+        <label for="body">Body</label>
+        <button type="button" class="edit-toggle-btn" (click)="toggleEditBody()">
+          {{ isEditingBody ? '👁 Preview' : '✏️ Edit' }}
+        </button>
+      </div>
+      <textarea id="body" class="body-field" rows="14" [(ngModel)]="body"
+                placeholder="Markdown notes…" *ngIf="isEditingBody"></textarea>
+      <div class="body-rendered" *ngIf="!isEditingBody" (click)="toggleEditBody()"
+           [innerHTML]="body | chatMarkdown"></div>
     </section>
 
     <div class="form-actions">
