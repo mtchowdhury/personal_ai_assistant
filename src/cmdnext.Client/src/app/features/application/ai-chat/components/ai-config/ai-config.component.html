@@ -1,0 +1,166 @@
+<div class="ai-config-dialog">
+  <h2 mat-dialog-title class="dialog-title">
+    <span>AI Configuration</span>
+    <button mat-icon-button (click)="close()" class="close-button">
+      <mat-icon>close</mat-icon>
+    </button>
+  </h2>
+
+  <mat-divider></mat-divider>
+
+  <mat-dialog-content [class.loading-overlay-active]="isLoading()">
+    <!-- Providers Section -->
+    <section class="config-section">
+      <h3>AI Providers</h3>
+      <p class="section-description">Add your API keys for different AI providers</p>
+
+      <!-- Add Provider Form -->
+      <form [formGroup]="addProviderForm" class="add-provider-form">
+        <div class="form-row">
+          <mat-form-field appearance="outline" class="form-field">
+            <mat-label>Provider</mat-label>
+            <mat-select formControlName="provider">
+              @for (provider of availableProviders; track provider.name) {
+                <mat-option [value]="provider.name">{{ provider.displayName }}</mat-option>
+              }
+            </mat-select>
+            <mat-error *ngIf="addProviderControls['provider'].hasError('required')">
+              Provider is required
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="form-field">
+            <mat-label>API Key</mat-label>
+            <input matInput type="password" formControlName="apiKey" placeholder="Enter your API key">
+            <mat-error *ngIf="addProviderControls['apiKey'].hasError('required')">
+              API Key is required
+            </mat-error>
+            <mat-error *ngIf="addProviderControls['apiKey'].hasError('minlength')">
+              API Key must be at least 10 characters
+            </mat-error>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="form-field">
+            <mat-label>Endpoint (optional)</mat-label>
+            <input matInput formControlName="endpoint" placeholder="https://api.mistral.ai/v1">
+          </mat-form-field>
+
+          <button mat-raised-button color="primary" (click)="addProvider()" [disabled]="addProviderFormDisabled">
+            <mat-icon>add</mat-icon>
+            Add Provider
+          </button>
+        </div>
+      </form>
+
+      <!-- Provider List -->
+      <div class="provider-list" *ngIf="providers().length > 0; else noProviders">
+        <h4>Your Providers</h4>
+        <mat-list>
+          @for (provider of providers(); track provider.id) {
+            <mat-list-item>
+              <mat-icon matListItemIcon color="primary">smart_toy</mat-icon>
+              <span matListItemTitle>{{ getProviderDisplayName(provider.provider) }}</span>
+              <span matListItemLine *ngIf="provider.keyLastFour">Key: ****{{ provider.keyLastFour }}</span>
+              <span matListItemLine *ngIf="provider.endpoint">{{ provider.endpoint }}</span>
+              <button mat-icon-button matListItemMeta (click)="setDefaultProvider(provider.id)">
+                <mat-icon color="accent">star</mat-icon>
+              </button>
+            </mat-list-item>
+          }
+        </mat-list>
+      </div>
+
+      <ng-template #noProviders>
+        <p class="no-items">No providers configured yet</p>
+      </ng-template>
+    </section>
+
+    <mat-divider></mat-divider>
+
+    <!-- Settings Section -->
+    <section class="config-section">
+      <h3>AI Settings</h3>
+      <p class="section-description">Configure default AI behavior</p>
+
+      <form [formGroup]="settingsForm" class="settings-grid" *ngIf="settings(); else loadingSettings">
+        <mat-form-field appearance="outline" class="form-field full-width">
+          <mat-label>Default Provider</mat-label>
+          <mat-select formControlName="defaultProvider" (selectionChange)="selectProviderForModel($event.value)">
+            @for (provider of availableProviders; track provider.name) {
+              <mat-option [value]="provider.name">{{ provider.displayName }}</mat-option>
+            }
+          </mat-select>
+          <mat-error *ngIf="settingsControls['defaultProvider'].hasError('required')">
+            Default Provider is required
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field full-width">
+          <mat-label>Default Model</mat-label>
+          <mat-select formControlName="defaultModel">
+            @for (model of availableModels(); track model.name) {
+              <mat-option [value]="model.name">{{ model.displayName }}</mat-option>
+            }
+          </mat-select>
+          <mat-error *ngIf="settingsControls['defaultModel'].hasError('required')">
+            Default Model is required
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Temperature</mat-label>
+          <input matInput type="number" formControlName="temperature" step="0.1" min="0" max="1">
+          <mat-hint>Creativity (0.0 - 1.0)</mat-hint>
+          <mat-error *ngIf="settingsControls['temperature'].hasError('required')">
+            Temperature is required
+          </mat-error>
+          <mat-error *ngIf="settingsControls['temperature'].hasError('min') || settingsControls['temperature'].hasError('max')">
+            Temperature must be between 0 and 1
+          </mat-error>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="form-field">
+          <mat-label>Max Tokens</mat-label>
+          <input matInput type="number" formControlName="maxOutputTokens" min="256" max="32768">
+          <mat-error *ngIf="settingsControls['maxOutputTokens'].hasError('required')">
+            Max Tokens is required
+          </mat-error>
+          <mat-error *ngIf="settingsControls['maxOutputTokens'].hasError('min') || settingsControls['maxOutputTokens'].hasError('max')">
+            Max Tokens must be between 256 and 32768
+          </mat-error>
+        </mat-form-field>
+
+        <div class="toggle-field">
+          <label>Chat Enabled</label>
+          <mat-slide-toggle formControlName="isChatEnabled"></mat-slide-toggle>
+        </div>
+      </form>
+
+      <ng-template #loadingSettings>
+        <div class="settings-loading">
+          <mat-progress-spinner diameter="32" color="primary" mode="indeterminate"></mat-progress-spinner>
+        </div>
+      </ng-template>
+    </section>
+  </mat-dialog-content>
+
+  <mat-divider></mat-divider>
+
+  <mat-dialog-actions align="end">
+    <button mat-button type="button" (click)="close()">Cancel</button>
+    <button mat-raised-button color="primary" (click)="saveSettings()" [disabled]="settingsFormDisabled">
+      Save Settings
+    </button>
+  </mat-dialog-actions>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" *ngIf="isLoading()">
+  <mat-progress-spinner diameter="40" color="primary" mode="indeterminate"></mat-progress-spinner>
+</div>
+
+<!-- Error Message -->
+<div class="error-message" *ngIf="error()">
+  <mat-icon color="warn">error_outline</mat-icon>
+  <span>{{ error() }}</span>
+</div>

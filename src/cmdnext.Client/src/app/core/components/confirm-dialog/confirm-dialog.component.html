@@ -1,0 +1,23 @@
+<h2 mat-dialog-title>{{ data.title }}</h2>
+
+<div mat-dialog-content>
+  <p class="message">{{ data.message }}</p>
+  <input *ngIf="isPrompt"
+         type="text"
+         class="prompt-input"
+         [(ngModel)]="inputValue"
+         [placeholder]="data.promptPlaceholder || ''"
+         (keydown.enter)="confirm()"
+         cdkFocusInitial>
+</div>
+
+<div mat-dialog-actions align="end">
+  <button type="button" class="btn secondary" (click)="cancel()">{{ data.cancelLabel || 'Cancel' }}</button>
+  <button type="button"
+          class="btn primary"
+          [class.danger]="data.danger"
+          [disabled]="isPrompt && !inputValue.trim()"
+          (click)="confirm()">
+    {{ data.confirmLabel || 'Confirm' }}
+  </button>
+</div>

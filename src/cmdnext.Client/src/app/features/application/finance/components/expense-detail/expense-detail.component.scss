@@ -1,0 +1,53 @@
+.finance-page { min-height: 100vh; background: #f5f5f5; color: #1a1a1a; }
+
+.finance-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 24px; background: #fff; border-bottom: 1px solid #e0e0e0;
+
+  .header-left { display: flex; align-items: center; gap: 16px; h1 { margin: 0; font-size: 22px; } }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .link-btn { border: none; background: none; color: #2f6fed; cursor: pointer; font-size: 14px; }
+  .header-btn {
+    padding: 8px 16px; border: 1px solid #d0d0d0; border-radius: 8px; background: #fff; cursor: pointer; font-size: 14px;
+    color: #333; text-decoration: none; display: inline-block;
+    &:hover { background: #f0f0f0; }
+    &.danger { border-color: #e0a0a0; color: #c0392b; &:hover { background: #fdf0f0; } }
+  }
+}
+
+.finance-main { max-width: 900px; margin: 0 auto; padding: 24px; }
+.loading, .empty { color: #777; padding: 16px 0; }
+
+.detail-grid {
+  display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 28px;
+  @media (min-width: 640px) { grid-template-columns: 1fr 260px; }
+}
+
+.detail-info {
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px;
+  h2 { margin: 0 0 14px; font-size: 20px; }
+  .info-row {
+    display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px;
+    &:last-child { border-bottom: none; }
+    span { color: #888; }
+    .source { text-transform: capitalize; &.ai { color: #10a37f; } }
+  }
+}
+
+.detail-image {
+  img { width: 100%; border-radius: 12px; border: 1px solid #e5e5e5; }
+}
+
+.items-section {
+  h3 { font-size: 16px; margin: 0 0 12px; }
+}
+
+.items-table {
+  width: 100%; border-collapse: collapse; background: #fff;
+  border: 1px solid #e5e5e5; border-radius: 12px; overflow: hidden; font-size: 14px;
+
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #f0f0f0; }
+  th { background: #fafafa; font-weight: 600; color: #555; }
+  tr:last-child td { border-bottom: none; }
+  .canon { color: #10a37f; }
+}

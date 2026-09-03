@@ -1,0 +1,130 @@
+<div class="finance-page">
+  <header class="finance-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Finance</button>
+      <h1>Expenses</h1>
+    </div>
+    <div class="header-right">
+      <a routerLink="/finance/expenses/new" class="header-btn primary">+ Add</a>
+    </div>
+  </header>
+
+  <main class="finance-main">
+    <!-- Total for the current filters -->
+    <section class="total-card">
+      <div class="total-info">
+        <span class="total-label">{{ totalLabel }}</span>
+        <span class="total-value">{{ total | number:'1.2-2' }} {{ totalCurrency }}</span>
+        <span class="total-sub">{{ resultCount }} {{ view === 'items' ? 'item(s)' : 'expense(s)' }}</span>
+      </div>
+      <label class="period-picker">
+        <span>Period</span>
+        <select [(ngModel)]="activePeriod" (ngModelChange)="onPeriodChange()">
+          <option value="">All time</option>
+          <option *ngFor="let p of periods" [value]="periodValue(p)">{{ periodLabel(p) }}</option>
+        </select>
+      </label>
+    </section>
+
+    <!-- Search by shop, remarks, or item name -->
+    <div class="search-bar">
+      <input type="search"
+             [(ngModel)]="searchTerm"
+             (ngModelChange)="onSearchChange()"
+             placeholder="Search shop, remarks, or item name (e.g. rice)"
+             aria-label="Search expenses">
+      <button type="button" class="clear-search" *ngIf="searchTerm" (click)="clearSearch()" aria-label="Clear search">✕</button>
+    </div>
+
+    <!-- View toggle: grouped receipts vs. flat line items -->
+    <div class="view-toggle">
+      <button type="button" class="toggle-btn" [class.active]="view === 'expenses'" (click)="setView('expenses')">
+        Expenses
+      </button>
+      <button type="button" class="toggle-btn" [class.active]="view === 'items'" (click)="setView('items')">
+        Items
+      </button>
+    </div>
+
+    <!-- Category filter — chips toggle, so several categories can be active at once -->
+    <div class="filters">
+      <button type="button"
+              class="chip"
+              [class.active]="activeCategoryIds.length === 0"
+              (click)="clearCategories()">All</button>
+      <button type="button"
+              *ngFor="let c of categories"
+              class="chip"
+              [class.active]="isCategoryActive(c.id)"
+              [attr.aria-pressed]="isCategoryActive(c.id)"
+              (click)="toggleCategory(c.id)">{{ c.name }}</button>
+    </div>
+
+    <app-loading-spinner *ngIf="isLoading" [label]="view === 'items' ? 'Loading items…' : 'Loading expenses…'"></app-loading-spinner>
+
+    <div *ngIf="!isLoading && isEmpty" class="empty">
+      <ng-container *ngIf="searchTerm.trim() || activePeriod || activeCategoryIds.length; else noExpensesAtAll">
+        No {{ view === 'items' ? 'items' : 'expenses' }} match these filters.
+      </ng-container>
+      <ng-template #noExpensesAtAll>
+        No expenses yet. Upload a receipt in the AI chat or add one manually.
+      </ng-template>
+    </div>
+
+    <!-- Item (transaction) view -->
+    <div class="item-list" *ngIf="!isLoading && view === 'items' && items.length > 0">
+      <div class="item-row item-row-header">
+        <span class="col-name">Item</span>
+        <span class="col-canonical">Canonical</span>
+        <span class="col-where">Date / Shop</span>
+        <span class="col-qty">Qty</span>
+        <span class="col-unit">Unit</span>
+        <span class="col-total">Total</span>
+      </div>
+      <button type="button" *ngFor="let i of items" class="item-row" (click)="open(i.expenseId)">
+        <span class="col-name">
+          {{ i.rawName }}
+          <span class="item-note" *ngIf="i.notes">{{ i.notes }}</span>
+        </span>
+        <span class="col-canonical canon">{{ i.canonicalName || '—' }}</span>
+        <span class="col-where">
+          {{ i.purchasedOn | date:'mediumDate' }}
+          <span class="item-shop" *ngIf="i.shopName">{{ i.shopName }}</span>
+          <span class="tag" *ngIf="i.categoryName">{{ i.categoryName }}</span>
+        </span>
+        <span class="col-qty">{{ i.quantity | number:'1.0-3' }}</span>
+        <span class="col-unit">{{ i.unitPrice | number:'1.2-2' }}</span>
+        <span class="col-total">{{ i.lineTotal | number:'1.2-2' }} {{ i.currency }}</span>
+      </button>
+    </div>
+
+    <div class="expense-list" *ngIf="!isLoading && view === 'expenses' && expenses.length > 0">
+      <div *ngFor="let e of expenses" class="expense-row">
+        <button type="button" class="expense-open" (click)="open(e.id)">
+          <div class="expense-main">
+            <span class="shop">{{ e.shopName || e.notes || e.categoryName || 'Expense' }}</span>
+            <span class="meta">
+              {{ e.purchasedOn | date:'mediumDate' }} · {{ e.itemCount }} item(s)
+              <span class="tag" *ngIf="e.categoryName">{{ e.categoryName }}</span>
+              <span class="tag source" [class.ai]="e.source === 'ai'">{{ e.source }}</span>
+              <span class="tag" *ngIf="e.hasImage">📎</span>
+            </span>
+          </div>
+          <div class="expense-amount">{{ e.totalAmount | number:'1.2-2' }} {{ e.currency }}</div>
+        </button>
+
+        <div class="expense-actions">
+          <a [routerLink]="['/finance/expenses', e.id, 'edit']"
+             class="icon-btn"
+             title="Edit expense"
+             aria-label="Edit expense">✎</a>
+          <button type="button"
+                  class="icon-btn danger"
+                  (click)="delete(e)"
+                  title="Delete expense"
+                  aria-label="Delete expense">🗑</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

@@ -1,0 +1,82 @@
+<div class="finance-page">
+  <header class="finance-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="cancel()">← Expenses</button>
+      <h1>{{ isEditMode ? 'Edit Expense' : 'Add Expense' }}</h1>
+    </div>
+    <div class="header-right">
+      <a routerLink="/finance/categories" class="link-btn">Manage categories</a>
+    </div>
+  </header>
+
+  <main class="finance-main">
+    <app-loading-spinner *ngIf="isLoading" label="Loading expense…"></app-loading-spinner>
+
+    <form *ngIf="!isLoading" [formGroup]="form" (ngSubmit)="save()" class="expense-form">
+      <div class="form-grid">
+        <label class="field">
+          <span>Category</span>
+          <select formControlName="categoryId">
+            <option *ngFor="let c of categories" [value]="c.id">{{ c.name }}</option>
+          </select>
+        </label>
+        <label class="field" *ngIf="showShopField">
+          <span>{{ shopFieldLabel }}</span>
+          <input type="text" formControlName="shopName" [placeholder]="shopFieldPlaceholder">
+        </label>
+        <label class="field" *ngIf="!showShopField">
+          <span>Remarks</span>
+          <input type="text" formControlName="remarks" placeholder="e.g. September rent">
+        </label>
+        <label class="field">
+          <span>Date *</span>
+          <input type="date" formControlName="purchasedOn">
+        </label>
+        <label class="field">
+          <span>Currency</span>
+          <input type="text" formControlName="currency" maxlength="3">
+        </label>
+      </div>
+
+      <h3>Items</h3>
+      <div formArrayName="items" class="items">
+        <div class="item-row item-row-header">
+          <span class="col-name">Item name</span>
+          <span class="col-canonical">Canonical</span>
+          <span class="col-qty">Qty</span>
+          <span class="col-unit">Unit price</span>
+          <span class="col-notes">Notes</span>
+          <span class="line-total">Total</span>
+          <span class="remove-spacer"></span>
+        </div>
+        <div *ngFor="let item of items.controls; let i = index" [formGroupName]="i" class="item-row">
+          <input type="text" formControlName="rawName" placeholder="Item name (e.g. MILBONA REIS)" class="col-name">
+          <input type="text" formControlName="canonicalName" placeholder="canonical (e.g. rice)" class="col-canonical">
+          <input type="number" formControlName="quantity" step="0.001" min="0" placeholder="Qty" class="col-qty">
+          <input type="number" formControlName="unitPrice" step="0.01" min="0" placeholder="Unit price" class="col-unit">
+          <input type="text" formControlName="notes" placeholder="Notes (optional)" class="col-notes">
+          <span class="line-total">{{ lineTotal(i) | number:'1.2-2' }}</span>
+          <button type="button" class="remove" (click)="removeItem(i)" [disabled]="items.length === 1">✕</button>
+        </div>
+      </div>
+
+      <button type="button" class="add-item" (click)="addItem()">+ Add item</button>
+
+      <div class="total-row">
+        <label class="field total-override">
+          <span>Total (leave blank to use item sum)</span>
+          <input type="number" formControlName="totalAmount" step="0.01" min="0"
+                 [placeholder]="(computedTotal | number:'1.2-2') || '0.00'">
+        </label>
+        <div class="computed">Items sum: <b>{{ computedTotal | number:'1.2-2' }} {{ form.get('currency')?.value }}</b></div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn secondary" (click)="cancel()">Cancel</button>
+        <button type="submit" class="btn primary" [disabled]="isSaving">
+          {{ isSaving ? 'Saving…' : (isEditMode ? 'Save Changes' : 'Save Expense') }}
+        </button>
+      </div>
+    </form>
+  </main>
+</div>

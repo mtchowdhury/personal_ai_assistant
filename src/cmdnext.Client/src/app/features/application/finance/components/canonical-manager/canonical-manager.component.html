@@ -1,0 +1,52 @@
+<div class="finance-page">
+  <header class="finance-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Finance</button>
+      <h1>Item Names</h1>
+    </div>
+  </header>
+
+  <main class="finance-main">
+    <p class="intro">
+      The AI groups purchases by a normalised name (e.g. "reis" and "rice"). Select names that mean the
+      same thing and merge them, or rename one on its own.
+    </p>
+
+    <app-loading-spinner *ngIf="isLoading" label="Loading item names…"></app-loading-spinner>
+
+    <div *ngIf="!isLoading && canonicals.length === 0" class="empty">
+      No items recorded yet.
+    </div>
+
+    <ng-container *ngIf="!isLoading && canonicals.length > 0">
+      <!-- Merge bar -->
+      <div class="merge-bar" *ngIf="selected.size > 0">
+        <span>{{ selected.size }} selected → merge into</span>
+        <input type="text" [(ngModel)]="mergeTarget" placeholder="target name (e.g. rice)">
+        <button class="btn primary" (click)="merge()" [disabled]="isSaving">
+          {{ isSaving ? 'Merging…' : 'Merge' }}
+        </button>
+        <button class="btn secondary" (click)="selected.clear()">Clear</button>
+      </div>
+
+      <div class="canon-list">
+        <div *ngFor="let c of canonicals" class="canon-row">
+          <label class="left">
+            <input type="checkbox"
+                   [disabled]="!named(c)"
+                   [checked]="named(c) && selected.has(named(c)!)"
+                   (change)="named(c) && toggle(named(c)!)">
+            <span class="name" [class.unnamed]="!named(c)">
+              {{ named(c) || '(no canonical name)' }}
+            </span>
+          </label>
+          <div class="right">
+            <span class="stat">{{ c.itemCount }} item(s)</span>
+            <span class="stat">{{ c.totalSpent | number:'1.2-2' }}</span>
+            <button *ngIf="named(c)" class="rename" (click)="rename(named(c)!)">Rename</button>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+  </main>
+</div>

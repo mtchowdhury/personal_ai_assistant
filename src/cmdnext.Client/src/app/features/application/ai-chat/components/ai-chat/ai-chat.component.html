@@ -1,0 +1,187 @@
+<div class="ai-chat-page">
+  <!-- Sidebar -->
+  <div class="ai-chat-sidebar">
+    <div class="ai-chat-sidebar-header">
+      <button class="new-chat-btn" (click)="startNewChat()">
+        <span>+</span> New Chat
+      </button>
+    </div>
+    
+    <div class="ai-chat-search">
+      <input 
+        type="text" 
+        [formControl]="searchControl" 
+        placeholder="Search chats..."
+        class="search-input"
+      />
+    </div>
+    
+    <div class="ai-chat-list">
+      <div 
+        *ngFor="let chat of filteredChats" 
+        class="ai-chat-item"
+        [class.active]="chat.id === activeChatId"
+        (click)="selectChat(chat.id)"
+      >
+        <div class="ai-chat-item-content">
+          <span class="ai-chat-item-title">{{ chat.title || 'New chat' }}</span>
+          <span class="ai-chat-item-meta" *ngIf="chat.provider || chat.model">
+            {{ chat.provider }} / {{ chat.model }}
+          </span>
+        </div>
+        <div class="ai-chat-item-actions">
+          <button 
+            class="delete-btn" 
+            (click)="deleteChat(chat.id, $event)"
+            title="Delete chat"
+          >
+            <span>&#10005;</span>
+          </button>
+        </div>
+      </div>
+      
+      <div class="ai-chat-list-empty" *ngIf="filteredChats.length === 0">
+        <p>No chats found</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Chat Area -->
+  <div class="ai-chat-main">
+    <!-- Header -->
+    <div class="ai-chat-header">
+      <div class="ai-chat-header-left">
+        <h2 *ngIf="activeChat">{{ activeChat.title || 'New chat' }}</h2>
+        <span class="ai-chat-status" *ngIf="activeChat?.provider || activeChat?.model">
+          {{ activeChat?.provider }} / {{ activeChat?.model }}
+        </span>
+      </div>
+      <div class="ai-chat-header-right">
+        <span class="typing-indicator" *ngIf="isTyping">Typing...</span>
+        <span class="typing-indicator" *ngIf="isCompacting">Compacting...</span>
+        <button type="button" class="header-btn" (click)="goHome()" title="Back to home">
+          Home
+        </button>
+        <button type="button" class="header-btn" (click)="openAiConfig()" title="AI Configuration">
+          Settings
+        </button>
+        <button type="button" class="header-btn header-btn-danger" (click)="logout()" title="Sign out">
+          Logout
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="ai-chat-messages" #messageList>
+      <div class="ai-chat-empty" *ngIf="!activeChat || activeChat.messages.length === 0">
+        <p>Start a new conversation with your AI assistant</p>
+      </div>
+      
+      <div 
+        *ngFor="let message of activeChat?.messages"
+        class="ai-chat-message"
+        [class.user]="message.fromUser"
+        [class.error]="message.isError"
+      >
+        <div class="message-avatar" [class.user-avatar]="message.fromUser" [class.ai-avatar]="!message.fromUser">
+          <span *ngIf="message.fromUser" class="avatar-initials">{{ userInitials }}</span>
+          <svg *ngIf="!message.fromUser" class="avatar-robot" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path fill="currentColor" d="M12 2a1 1 0 0 1 1 1v1h3a3 3 0 0 1 3 3v1h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h1V7a3 3 0 0 1 3-3h3V3a1 1 0 0 1 1-1Zm-2.5 8A1.5 1.5 0 1 0 11 11.5 1.5 1.5 0 0 0 9.5 10Zm5 0A1.5 1.5 0 1 0 16 11.5 1.5 1.5 0 0 0 14.5 10ZM9 15a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2Z"/>
+          </svg>
+        </div>
+        
+        <div class="message-content">
+          <div class="message-text" [innerHTML]="message.text | chatMarkdown"></div>
+          
+          <!-- Token Usage -->
+          <div class="message-tokens" *ngIf="message.inputTokens || message.outputTokens">
+            <span *ngIf="message.inputTokens">Input: {{ message.inputTokens }} tokens</span>
+            <span *ngIf="message.outputTokens"> | Output: {{ message.outputTokens }} tokens</span>
+          </div>
+          
+          <!-- Attachments -->
+          <div class="message-attachments" *ngIf="message.attachments?.length">
+            <div *ngFor="let attachment of message.attachments" class="message-attachment">
+              <span>&#128196;</span> {{ attachment }}
+            </div>
+          </div>
+          
+          <div class="message-time">{{ message.timestamp | date:'shortTime' }}</div>
+        </div>
+      </div>
+
+      <!-- Pending assistant reply: shown from send until the first token streams back -->
+      <div class="ai-chat-message pending" *ngIf="isTyping || isCompacting">
+        <div class="message-avatar ai-avatar">
+          <svg class="avatar-robot" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <path fill="currentColor" d="M12 2a1 1 0 0 1 1 1v1h3a3 3 0 0 1 3 3v1h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1v1a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h1V7a3 3 0 0 1 3-3h3V3a1 1 0 0 1 1-1Zm-2.5 8A1.5 1.5 0 1 0 11 11.5 1.5 1.5 0 0 0 9.5 10Zm5 0A1.5 1.5 0 1 0 16 11.5 1.5 1.5 0 0 0 14.5 10ZM9 15a1 1 0 0 0 0 2h6a1 1 0 0 0 0-2Z"/>
+          </svg>
+        </div>
+
+        <div class="message-content">
+          <div class="thinking" role="status" aria-live="polite">
+            <span class="thinking-dots" aria-hidden="true">
+              <span></span><span></span><span></span>
+            </span>
+            <span class="thinking-label">{{ isCompacting ? 'Summarising the conversation…' : 'Thinking…' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="ai-chat-input-container">
+      <!-- Attached Files -->
+      <div class="ai-chat-attachments" *ngIf="attachedFiles.length">
+        <div *ngFor="let file of attachedFiles; let i = index" class="ai-chat-attachment">
+          <span class="attachment-name">{{ file.name }}</span>
+          <button class="attachment-remove" (click)="removeFile(i)">
+            &#10005;
+          </button>
+        </div>
+      </div>
+
+      <div class="ai-chat-input-row">
+        <button 
+          class="ai-chat-attach" 
+          (click)="fileInput.click()"
+          title="Attach files"
+          [disabled]="isSending"
+        >
+          <span>&#128196;</span>
+        </button>
+        
+        <input 
+          #fileInput 
+          type="file" 
+          (change)="onFileSelected($event)"
+          accept=".xlsx,.xlsm,.docx,.pdf,.png,.jpg,.jpeg,.gif,.webp"
+          multiple
+          style="display: none"
+        />
+
+        <div class="ai-chat-input-col">
+          <textarea 
+            [formControl]="inputControl" 
+            class="ai-chat-input"
+            placeholder="Type your message here… (you can paste an image too)"
+            (keydown)="onKeyDown($event)"
+            (paste)="onPaste($event)"
+            [disabled]="isSending"
+            rows="1"
+          ></textarea>
+        </div>
+
+        <button 
+          class="ai-chat-send" 
+          (click)="send()"
+          [disabled]="!inputControl.value?.trim() || isSending"
+          title="Send message"
+        >
+          <span *ngIf="!isSending">&#9658;</span>
+          <span *ngIf="isSending">&#8987;</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

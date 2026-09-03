@@ -1,0 +1,57 @@
+<div class="auth-container">
+  <div class="auth-card">
+    <h1>Welcome to CMDNEXT</h1>
+    <p class="subtitle">AI Assistant</p>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="auth-form">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          placeholder="Enter your email"
+          class="form-control"
+          [class.error]="email?.invalid && (email?.dirty || email?.touched)"
+        />
+        <div class="error-message" *ngIf="email?.errors?.['required'] && (email?.dirty || email?.touched)">
+          Email is required
+        </div>
+        <div class="error-message" *ngIf="email?.errors?.['email'] && (email?.dirty || email?.touched)">
+          Please enter a valid email
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          placeholder="Enter your password"
+          class="form-control"
+          [class.error]="password?.invalid && (password?.dirty || password?.touched)"
+        />
+        <div class="error-message" *ngIf="password?.errors?.['required'] && (password?.dirty || password?.touched)">
+          Password is required
+        </div>
+        <div class="error-message" *ngIf="password?.errors?.['minlength'] && (password?.dirty || password?.touched)">
+          Password must be at least 6 characters
+        </div>
+      </div>
+
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="loginForm.invalid || isLoading"
+      >
+        <span *ngIf="!isLoading">Login</span>
+        <mat-progress-spinner *ngIf="isLoading" diameter="18" mode="indeterminate"></mat-progress-spinner>
+      </button>
+
+      <div class="auth-footer">
+        <p>Don't have an account? <a routerLink="/auth/register">Register</a></p>
+      </div>
+    </form>
+  </div>
+</div>

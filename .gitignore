@@ -1,0 +1,22 @@
+## .NET build output
+bin/
+obj/
+
+## Serilog output — may contain user identifiers; never commit
+logs/
+*.log
+
+## Node / Angular
+node_modules/
+dist/
+.angular/
+
+## IDE / OS
+.idea/
+.vs/
+.DS_Store
+*.user
+
+## Local config / user data — never commit
+appsettings.Development.json
+src/cmdnext.Api/storage/

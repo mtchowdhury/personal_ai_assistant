@@ -1,0 +1,74 @@
+<div class="finance-page">
+  <header class="finance-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Finance</button>
+      <h1>Categories</h1>
+    </div>
+    <div class="header-right">
+      <button type="button" class="header-btn primary" (click)="openAddForm()" *ngIf="!showAddForm">+ Add category</button>
+    </div>
+  </header>
+
+  <main class="finance-main">
+    <p class="intro">
+      Each category controls what the "shop/party" field is called on the Add Expense form
+      (e.g. Dining shows "Restaurant"), or hides it entirely in favor of a Remarks field.
+    </p>
+
+    <!-- Add form -->
+    <form *ngIf="showAddForm" [formGroup]="addForm" (ngSubmit)="addCategory()" class="category-form">
+      <label class="field">
+        <span>Name</span>
+        <input type="text" formControlName="name" placeholder="e.g. Subscriptions">
+      </label>
+      <label class="field checkbox">
+        <input type="checkbox" formControlName="showPartyField">
+        <span>Show a shop/party field on the expense form</span>
+      </label>
+      <label class="field" *ngIf="addForm.get('showPartyField')?.value">
+        <span>Field label</span>
+        <input type="text" formControlName="partyLabel" placeholder="e.g. Provider (defaults to &quot;Shop&quot;)">
+      </label>
+      <div class="form-actions">
+        <button type="button" class="btn secondary" (click)="cancelAdd()">Cancel</button>
+        <button type="submit" class="btn primary" [disabled]="isSaving">{{ isSaving ? 'Saving…' : 'Add' }}</button>
+      </div>
+    </form>
+
+    <app-loading-spinner *ngIf="isLoading" label="Loading categories…"></app-loading-spinner>
+
+    <div class="category-list" *ngIf="!isLoading">
+      <div *ngFor="let c of categories" class="category-row">
+        <ng-container *ngIf="editingId !== c.id; else editing">
+          <div class="left">
+            <span class="name">{{ c.name }}</span>
+            <span class="tag" *ngIf="c.isProtected">protected</span>
+          </div>
+          <div class="right">
+            <span class="field-hint" *ngIf="c.showPartyField">Field: {{ c.partyLabel || 'Shop' }}</span>
+            <span class="field-hint" *ngIf="!c.showPartyField">No shop field (Remarks instead)</span>
+            <button class="icon-btn" (click)="startEdit(c)">Edit</button>
+            <button class="icon-btn danger" (click)="deleteCategory(c)" [disabled]="c.isProtected"
+                    [title]="c.isProtected ? 'Protected category cannot be deleted' : 'Delete'">Delete</button>
+          </div>
+        </ng-container>
+
+        <ng-template #editing>
+          <form [formGroup]="editForm!" (ngSubmit)="saveEdit(c)" class="edit-row-form">
+            <input type="text" formControlName="name" class="edit-name">
+            <label class="field checkbox inline">
+              <input type="checkbox" formControlName="showPartyField">
+              <span>Show field</span>
+            </label>
+            <input type="text" formControlName="partyLabel" placeholder="Field label"
+                   *ngIf="editForm!.get('showPartyField')?.value" class="edit-label">
+            <div class="edit-actions">
+              <button type="button" class="icon-btn" (click)="cancelEdit()">Cancel</button>
+              <button type="submit" class="icon-btn primary" [disabled]="isSaving">Save</button>
+            </div>
+          </form>
+        </ng-template>
+      </div>
+    </div>
+  </main>
+</div>

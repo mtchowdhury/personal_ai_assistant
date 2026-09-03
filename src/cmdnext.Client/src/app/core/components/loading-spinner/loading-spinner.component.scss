@@ -1,0 +1,13 @@
+.loading-spinner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px 0;
+}
+
+.loading-label {
+  font-size: 13px;
+  color: #999;
+}

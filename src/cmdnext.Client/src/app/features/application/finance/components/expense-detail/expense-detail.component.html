@@ -1,0 +1,54 @@
+<div class="finance-page">
+  <header class="finance-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Expenses</button>
+      <h1>Receipt</h1>
+    </div>
+    <div class="header-right" *ngIf="expense">
+      <a [routerLink]="['/finance/expenses', expense.id, 'edit']" class="header-btn">Edit</a>
+      <button type="button" class="header-btn danger" (click)="delete()">Delete</button>
+    </div>
+  </header>
+
+  <main class="finance-main">
+    <app-loading-spinner *ngIf="isLoading" label="Loading receipt…"></app-loading-spinner>
+
+    <ng-container *ngIf="!isLoading && expense as e">
+      <section class="detail-grid">
+        <div class="detail-info">
+          <h2>{{ e.shopName || e.notes || e.categoryName || 'Expense' }}</h2>
+          <div class="info-row"><span>Date</span><b>{{ e.purchasedOn | date:'fullDate' }}</b></div>
+          <div class="info-row"><span>Total</span><b>{{ e.totalAmount | number:'1.2-2' }} {{ e.currency }}</b></div>
+          <div class="info-row" *ngIf="e.categoryName"><span>Category</span><b>{{ e.categoryName }}</b></div>
+          <div class="info-row" *ngIf="e.paymentMethod"><span>Payment</span><b>{{ e.paymentMethod }}</b></div>
+          <div class="info-row"><span>Source</span><b class="source" [class.ai]="e.source === 'ai'">{{ e.source }}</b></div>
+          <div class="info-row" *ngIf="e.notes"><span>Notes</span><b>{{ e.notes }}</b></div>
+        </div>
+
+        <div class="detail-image" *ngIf="imageObjectUrl">
+          <img [src]="imageObjectUrl" alt="Receipt image" />
+        </div>
+      </section>
+
+      <section class="items-section">
+        <h3>Items</h3>
+        <table class="items-table" *ngIf="e.items.length > 0">
+          <thead>
+            <tr><th>Item</th><th>Canonical</th><th>Qty</th><th>Unit</th><th>Total</th><th>Notes</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let i of e.items">
+              <td>{{ i.rawName }}</td>
+              <td class="canon">{{ i.canonicalName || '—' }}</td>
+              <td>{{ i.quantity | number:'1.0-3' }}</td>
+              <td>{{ i.unitPrice | number:'1.2-2' }}</td>
+              <td>{{ i.lineTotal | number:'1.2-2' }}</td>
+              <td class="notes">{{ i.notes || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p *ngIf="e.items.length === 0" class="empty">No line items recorded.</p>
+      </section>
+    </ng-container>
+  </main>
+</div>

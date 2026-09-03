@@ -1,0 +1,74 @@
+<div class="finance-page">
+  <header class="finance-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Home</button>
+      <h1>Finance</h1>
+    </div>
+    <div class="header-right">
+      <a routerLink="/finance/expenses/new" class="header-btn primary">+ Add Expense</a>
+      <a routerLink="/finance/expenses" class="header-btn">Expenses</a>
+      <a routerLink="/finance/items" class="header-btn">Item Names</a>
+      <a routerLink="/finance/categories" class="header-btn">Categories</a>
+      <a routerLink="/finance/budgets" class="header-btn">Budgets</a>
+    </div>
+  </header>
+
+  <main class="finance-main">
+    <app-loading-spinner *ngIf="isLoading" label="Loading finance dashboard…"></app-loading-spinner>
+
+    <ng-container *ngIf="!isLoading && dashboard as d">
+      <!-- Month summary -->
+      <section class="summary-row">
+        <div class="summary-card primary">
+          <span class="summary-label">Spent — {{ monthLabel }}</span>
+          <span class="summary-value">{{ d.monthTotal | number:'1.2-2' }} {{ d.currency }}</span>
+          <span class="summary-sub">{{ d.monthExpenseCount }} expense(s)</span>
+        </div>
+        <div class="summary-card" [class.warn]="d.anyOverBudget">
+          <span class="summary-label">Total Budget</span>
+          <span class="summary-value">
+            {{ d.totalBudget > 0 ? (d.totalBudget | number:'1.2-2') + ' ' + d.currency : 'Not set' }}
+          </span>
+          <span class="summary-sub" *ngIf="d.anyOverBudget">⚠ Over budget in some categories</span>
+          <span class="summary-sub" *ngIf="!d.anyOverBudget && d.totalBudget > 0">Within budget</span>
+        </div>
+      </section>
+
+      <!-- Category breakdown -->
+      <section class="categories-section">
+        <h2>By Category</h2>
+
+        <div *ngIf="d.categories.length === 0" class="empty">
+          No spending recorded this month yet.
+        </div>
+
+        <div class="category-list">
+          <div *ngFor="let c of d.categories" class="category-row" [class.over]="c.overBudget">
+            <div class="category-top">
+              <span class="category-name">{{ c.categoryName }}</span>
+              <span class="category-amount">
+                {{ c.spent | number:'1.2-2' }}
+                <ng-container *ngIf="c.budgetLimit && c.budgetLimit > 0">
+                  / {{ c.budgetLimit | number:'1.2-2' }}
+                </ng-container>
+                {{ d.currency }}
+              </span>
+            </div>
+
+            <!-- Budget bar only when a budget exists; absence never breaks layout -->
+            <div class="budget-bar" *ngIf="c.budgetLimit && c.budgetLimit > 0">
+              <div class="budget-fill" [class.over]="c.overBudget" [style.width.%]="usedPercent(c)"></div>
+            </div>
+            <div class="no-budget" *ngIf="!c.budgetLimit || c.budgetLimit <= 0">
+              No budget set
+            </div>
+
+            <div class="over-note" *ngIf="c.overBudget">
+              Over by {{ (c.spent - (c.budgetLimit || 0)) | number:'1.2-2' }} {{ d.currency }}
+            </div>
+          </div>
+        </div>
+      </section>
+    </ng-container>
+  </main>
+</div>

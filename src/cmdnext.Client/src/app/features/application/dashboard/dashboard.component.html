@@ -1,0 +1,78 @@
+<div class="dashboard-page">
+  <!-- Header -->
+  <header class="dashboard-header">
+    <div class="header-left">
+      <h1>CMDNEXT</h1>
+      <span class="subtitle">AI Assistant</span>
+    </div>
+    <div class="header-right">
+      <div class="user-info">
+        <div class="user-avatar">{{ userInitials }}</div>
+        <div class="user-details">
+          <span class="user-name">{{ user?.firstName }} {{ user?.lastName }}</span>
+          <span class="user-email">{{ user?.email }}</span>
+        </div>
+      </div>
+      <button class="btn btn-secondary" (click)="logout()">Logout</button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="dashboard-main">
+    <div class="dashboard-content">
+      <!-- Welcome Section -->
+      <section class="welcome-section">
+        <h2>Welcome back, {{ user?.firstName || 'User' }}!</h2>
+        <p>Start a conversation with your AI assistant</p>
+      </section>
+
+      <!-- Quick Stats -->
+      <section class="stats-section">
+        <div class="stats-grid">
+          <div class="stat-card" routerLink="/ai-chat">
+            <div class="stat-icon">💬</div>
+            <div class="stat-info">
+              <span class="stat-value">{{ isLoading ? '—' : totalChats }}</span>
+              <span class="stat-label">Total Chats</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Quick Actions -->
+      <section class="actions-section">
+        <h3>Quick Actions</h3>
+        <div class="actions-grid">
+          <button class="action-card" routerLink="/ai-chat">
+            <span class="action-icon">💬</span>
+            <span class="action-label">Start AI Chat</span>
+          </button>
+          <button class="action-card" routerLink="/finance">
+            <span class="action-icon">💰</span>
+            <span class="action-label">Finance Manager</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Recent Activity -->
+      <section class="recent-section">
+        <h3>Recent Activity</h3>
+        <div class="recent-list">
+          <div *ngFor="let item of recentItems" class="recent-item" [routerLink]="item.route">
+            <div class="recent-icon">
+              <span *ngIf="item.type === 'chat'">💬</span>
+            </div>
+            <div class="recent-content">
+              <span class="recent-title">{{ item.title }}</span>
+              <span class="recent-date">{{ item.date | date:'short' }}</span>
+            </div>
+          </div>
+          <app-loading-spinner *ngIf="isLoading"></app-loading-spinner>
+          <div class="recent-empty" *ngIf="!isLoading && recentItems.length === 0">
+            <p>No recent activity yet. Start a chat to see it here.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>

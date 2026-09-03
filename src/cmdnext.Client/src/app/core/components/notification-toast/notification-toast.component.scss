@@ -1,0 +1,47 @@
+.notification-toast {
+  min-width: 300px;
+  max-width: 400px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  // Remove default snack bar background
+  .mat-snack-bar-container {
+    background: transparent;
+    box-shadow: none;
+  }
+}
+
+// Toast styling based on type
+.toast-success {
+  background-color: #4caf50;
+  color: white;
+}
+
+.toast-error {
+  background-color: #f44336;
+  color: white;
+}
+
+.toast-warning {
+  background-color: #ff9800;
+  color: white;
+}
+
+.toast-info {
+  background-color: #2196f3;
+  color: white;
+}
+
+// Button styling
+:host ::ng-deep .mat-simple-snackbar-action {
+  color: inherit;
+  opacity: 0.8;
+  margin-left: 16px;
+
+  &:hover {
+    opacity: 1;
+    text-decoration: underline;
+  }
+}

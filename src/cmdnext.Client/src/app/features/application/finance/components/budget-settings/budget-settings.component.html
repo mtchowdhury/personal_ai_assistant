@@ -1,0 +1,31 @@
+<div class="finance-page">
+  <header class="finance-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Finance</button>
+      <h1>Budgets</h1>
+    </div>
+    <div class="header-right">
+      <a routerLink="/finance/categories" class="link-btn">Manage categories</a>
+    </div>
+  </header>
+
+  <main class="finance-main">
+    <p class="intro">Set an optional monthly limit per category. Leaving one blank means no budget for it.</p>
+
+    <app-loading-spinner *ngIf="isLoading" label="Loading budgets…"></app-loading-spinner>
+
+    <div class="budget-list" *ngIf="!isLoading">
+      <div *ngFor="let row of rows" class="budget-row" [class.set]="row.budget">
+        <span class="category">{{ row.category.name }}</span>
+        <div class="controls">
+          <input type="number" min="0" step="0.01" [(ngModel)]="row.limit" placeholder="No budget">
+          <span class="currency">{{ currency }}</span>
+          <button class="btn primary" (click)="save(row)" [disabled]="savingCategoryId === row.category.id">
+            {{ savingCategoryId === row.category.id ? 'Saving…' : 'Save' }}
+          </button>
+          <button class="btn secondary" (click)="clear(row)" [disabled]="!row.budget">Clear</button>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

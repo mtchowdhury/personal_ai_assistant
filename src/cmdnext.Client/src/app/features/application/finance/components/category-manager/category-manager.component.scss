@@ -1,0 +1,89 @@
+.finance-page { min-height: 100vh; background: #f5f5f5; color: #1a1a1a; }
+
+.finance-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 24px; background: #fff; border-bottom: 1px solid #e0e0e0;
+
+  .header-left { display: flex; align-items: center; gap: 16px; h1 { margin: 0; font-size: 22px; } }
+  .link-btn { border: none; background: none; color: #2f6fed; cursor: pointer; font-size: 14px; }
+
+  .header-btn {
+    padding: 8px 16px; border: 1px solid #d0d0d0; border-radius: 8px; background: #fff; color: #333;
+    font-size: 14px; cursor: pointer;
+    &:hover { background: #f0f0f0; }
+    &.primary { background: #2f6fed; color: #fff; border-color: #2f6fed; &:hover { background: #2a63d4; } }
+  }
+}
+
+.finance-main { max-width: 720px; margin: 0 auto; padding: 24px; }
+.intro { color: #666; font-size: 14px; margin: 0 0 20px; }
+.loading { color: #777; padding: 16px 0; }
+
+.category-form {
+  display: flex; flex-direction: column; gap: 14px;
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 20px; margin-bottom: 20px;
+}
+
+.field {
+  display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #555;
+  input[type="text"] {
+    padding: 9px 10px; border: 1px solid #d5d5d5; border-radius: 8px; font-size: 14px; color: #1a1a1a;
+    &:focus { outline: none; border-color: #2f6fed; }
+  }
+  &.checkbox {
+    flex-direction: row; align-items: center; gap: 8px;
+    input { width: 16px; height: 16px; }
+  }
+}
+
+.form-actions {
+  display: flex; justify-content: flex-end; gap: 10px;
+}
+
+.btn {
+  padding: 9px 18px; border-radius: 8px; font-size: 14px; cursor: pointer; border: 1px solid transparent;
+  &.secondary { background: #fff; border-color: #d0d0d0; color: #333; }
+  &.primary { background: #2f6fed; color: #fff; &:disabled { opacity: 0.6; cursor: not-allowed; } }
+}
+
+.category-list { display: flex; flex-direction: column; gap: 10px; }
+
+.category-row {
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 10px; padding: 14px 16px;
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;
+
+  .left { display: flex; align-items: center; gap: 10px; }
+  .name { font-weight: 600; }
+  .tag {
+    font-size: 11px; color: #888; background: #f2f2f2; border-radius: 999px; padding: 2px 8px;
+  }
+
+  .right { display: flex; align-items: center; gap: 12px; }
+  .field-hint { font-size: 13px; color: #888; }
+
+  .icon-btn {
+    border: 1px solid #d0d0d0; background: #fff; border-radius: 6px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+    &:hover { background: #f2f2f2; }
+    &.primary { background: #2f6fed; color: #fff; border-color: #2f6fed; &:hover { background: #2a63d4; } }
+    &.danger { color: #c0392b; border-color: #e0a0a0; &:hover { background: #fdf0f0; } }
+    &:disabled { opacity: 0.4; cursor: not-allowed; &:hover { background: #fff; } }
+  }
+}
+
+.edit-row-form {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; width: 100%;
+
+  input[type="text"] {
+    padding: 7px 10px; border: 1px solid #d5d5d5; border-radius: 8px; font-size: 13px;
+    &:focus { outline: none; border-color: #2f6fed; }
+  }
+  .edit-name { flex: 1 1 160px; min-width: 0; font-weight: 600; }
+  .edit-label { flex: 1 1 160px; min-width: 0; }
+
+  .field.checkbox.inline {
+    flex-direction: row; align-items: center; gap: 6px; font-size: 12px; color: #666;
+    input { width: 14px; height: 14px; }
+  }
+
+  .edit-actions { display: flex; gap: 8px; margin-left: auto; }
+}
