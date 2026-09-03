@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -16,7 +16,10 @@ import { ChatMarkdownPipe } from '@shared/pipes/chat-markdown.pipe';
   templateUrl: './entry-detail.component.html',
   styleUrls: ['./entry-detail.component.scss']
 })
-export class EntryDetailComponent implements OnInit {
+export class EntryDetailComponent implements OnInit, AfterViewChecked {
+  @ViewChild('bodyTextarea') bodyTextarea?: ElementRef<HTMLTextAreaElement>;
+  private lastGrownFor: HTMLTextAreaElement | null = null;
+
   spaceId = '';
   entryId: string | null = null;
   isNew = false;
@@ -121,6 +124,25 @@ export class EntryDetailComponent implements OnInit {
 
   toggleEditBody(): void {
     this.isEditingBody = !this.isEditingBody;
+    this.lastGrownFor = null;
+  }
+
+  autoGrow(event: Event): void {
+    const el = event.target as HTMLTextAreaElement;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }
+
+  ngAfterViewChecked(): void {
+    // The textarea only exists in the DOM once isEditingBody is true, and its content can
+    // change (loading an existing entry, toggling into edit) without an (input) event firing —
+    // grow it to fit whenever a new element instance appears.
+    const el = this.bodyTextarea?.nativeElement;
+    if (el && el !== this.lastGrownFor) {
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+      this.lastGrownFor = el;
+    }
   }
 
   currentTypeSchema(): EntryTypeSchema | undefined {

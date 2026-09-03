@@ -8,16 +8,39 @@
   <app-loading-spinner *ngIf="isLoading" label="Loading entry…"></app-loading-spinner>
 
   <main class="entry-main" *ngIf="!isLoading">
+    <section class="field-group">
+      <label for="title">Title</label>
+      <input id="title" type="text" [(ngModel)]="title" placeholder="Entry title" />
+    </section>
+
+    <section class="field-group">
+      <div class="body-label-row">
+        <label for="body">Body</label>
+        <button type="button" class="edit-toggle-btn" (click)="toggleEditBody()">
+          {{ isEditingBody ? '👁 Preview' : '✏️ Edit' }}
+        </button>
+      </div>
+      <textarea id="body" class="body-field" [(ngModel)]="body"
+                (input)="autoGrow($event)" #bodyTextarea
+                placeholder="Markdown notes…" *ngIf="isEditingBody"></textarea>
+      <div class="body-rendered" *ngIf="!isEditingBody" (click)="toggleEditBody()"
+           [innerHTML]="body | chatMarkdown"></div>
+    </section>
+
+    <div class="form-actions">
+      <button type="button" class="btn danger" *ngIf="!isNew" (click)="deleteEntry()">Delete</button>
+      <div class="spacer"></div>
+      <button type="button" class="btn" (click)="cancel()">Cancel</button>
+      <button type="button" class="btn primary" (click)="save()" [disabled]="isSaving">
+        {{ isSaving ? 'Saving…' : 'Save' }}
+      </button>
+    </div>
+
     <section class="field-group" *ngIf="entryTypes.length > 1">
       <label>Type</label>
       <select [(ngModel)]="type" (ngModelChange)="onTypeChange()" [disabled]="!isNew">
         <option *ngFor="let t of entryTypes" [value]="t.type">{{ t.label }}</option>
       </select>
-    </section>
-
-    <section class="field-group">
-      <label for="title">Title</label>
-      <input id="title" type="text" [(ngModel)]="title" placeholder="Entry title" />
     </section>
 
     <section class="field-row">
@@ -53,28 +76,6 @@
       <label for="tags">Tags (comma separated)</label>
       <input id="tags" type="text" [(ngModel)]="tagsText" placeholder="e.g. arpeggio, technique" />
     </section>
-
-    <section class="field-group">
-      <div class="body-label-row">
-        <label for="body">Body</label>
-        <button type="button" class="edit-toggle-btn" (click)="toggleEditBody()">
-          {{ isEditingBody ? '👁 Preview' : '✏️ Edit' }}
-        </button>
-      </div>
-      <textarea id="body" class="body-field" rows="14" [(ngModel)]="body"
-                placeholder="Markdown notes…" *ngIf="isEditingBody"></textarea>
-      <div class="body-rendered" *ngIf="!isEditingBody" (click)="toggleEditBody()"
-           [innerHTML]="body | chatMarkdown"></div>
-    </section>
-
-    <div class="form-actions">
-      <button type="button" class="btn danger" *ngIf="!isNew" (click)="deleteEntry()">Delete</button>
-      <div class="spacer"></div>
-      <button type="button" class="btn" (click)="cancel()">Cancel</button>
-      <button type="button" class="btn primary" (click)="save()" [disabled]="isSaving">
-        {{ isSaving ? 'Saving…' : 'Save' }}
-      </button>
-    </div>
 
     <section class="append-section" *ngIf="!isNew">
       <button type="button" class="link-btn" (click)="showAppend = !showAppend">
