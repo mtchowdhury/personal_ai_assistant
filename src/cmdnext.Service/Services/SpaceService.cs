@@ -397,7 +397,7 @@ namespace CmdNext.Service.Services
 
             _logger.LogInformation("Created {Source} entry {EntryId} ({Type}) in space {SpaceId}", entry.Source, entry.Id, entry.Type, spaceId);
 
-            await _embeddings.EmbedEntryAsync(entry.Id, spaceId, entry.Title, entry.Body);
+            await _embeddings.EmbedEntryAsync(userId, entry.Id, spaceId, entry.Title, entry.Body);
 
             var nodePaths = await GetNodePathsAsync(spaceId, new[] { entry.NodeId });
             return ToEntryDto(entry, nodePaths, 0);
@@ -439,7 +439,7 @@ namespace CmdNext.Service.Services
 
             if (request.Title != null || request.Body != null)
             {
-                await _embeddings.EmbedEntryAsync(entry.Id, spaceId, entry.Title, entry.Body);
+                await _embeddings.EmbedEntryAsync(userId, entry.Id, spaceId, entry.Title, entry.Body);
             }
 
             var nodePaths = await GetNodePathsAsync(spaceId, new[] { entry.NodeId });
@@ -467,7 +467,7 @@ namespace CmdNext.Service.Services
             Entries.Update(entry);
             await _unitOfWork.SaveChangesAsync();
 
-            await _embeddings.EmbedEntryAsync(entry.Id, spaceId, entry.Title, entry.Body);
+            await _embeddings.EmbedEntryAsync(userId, entry.Id, spaceId, entry.Title, entry.Body);
 
             var nodePaths = await GetNodePathsAsync(spaceId, new[] { entry.NodeId });
             var attachmentCount = await Attachments.Query().CountAsync(a => a.EntryId == entryId);
@@ -538,7 +538,7 @@ namespace CmdNext.Service.Services
                 // ids are re-applied against the same filtered `q` so space/node/type/tag/date
                 // scoping stays identical between modes.
                 var candidateIds = await q.Select(e => e.Id).ToListAsync();
-                semanticHits = await SemanticSearchAsync(candidateIds, request.SpaceId, term, limit);
+                semanticHits = await SemanticSearchAsync(userId, candidateIds, request.SpaceId, term, limit);
             }
 
             // Rank: text hits first (they're exact/near-exact matches), then semantic-only hits
@@ -594,11 +594,11 @@ namespace CmdNext.Service.Services
         }
 
         private async Task<List<(Entry, double, string)>> SemanticSearchAsync(
-            List<Guid> candidateEntryIds, Guid? spaceId, string term, int limit)
+            Guid userId, List<Guid> candidateEntryIds, Guid? spaceId, string term, int limit)
         {
             if (candidateEntryIds.Count == 0) return new List<(Entry, double, string)>();
 
-            var matches = await _embeddings.SearchAsync(term, spaceId, candidateEntryIds, limit);
+            var matches = await _embeddings.SearchAsync(userId, term, spaceId, candidateEntryIds, limit);
             if (matches.Count == 0) return new List<(Entry, double, string)>();
 
             var entryIds = matches.Select(m => m.EntryId).Distinct().ToList();

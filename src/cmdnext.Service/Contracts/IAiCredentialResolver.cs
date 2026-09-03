@@ -11,6 +11,13 @@ namespace CmdNext.Service.Contracts
         /// </summary>
         Task<AiProviderCredential> ResolveAsync(Guid userId);
 
+        /// <summary>
+        /// Resolve a specific provider's credential for a user (e.g. "mistral" for embeddings),
+        /// regardless of their default chat provider/model. Throws <see cref="AiNotConfiguredException"/>
+        /// when the user has no active, decryptable credential for that provider.
+        /// </summary>
+        Task<AiProviderCredential> ResolveForProviderAsync(Guid userId, string provider, string? model);
+
         void Invalidate(Guid userId, string provider);
     }
 }

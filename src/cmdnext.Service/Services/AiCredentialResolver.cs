@@ -70,6 +70,37 @@ namespace CmdNext.Service.Services
                     $"The configured AI provider '{preferred}' has no active credential for this user.");
             }
 
+            var model = settings?.DefaultModel;
+            if (string.IsNullOrWhiteSpace(model))
+            {
+                _logger.LogWarning("No AI model configured for user {UserId}", userId);
+                throw new AiNotConfiguredException(
+                    "No AI model is configured for this user.");
+            }
+
+            return BuildCredential(userId, provider, model);
+        }
+
+        public async Task<AiProviderCredential> ResolveForProviderAsync(Guid userId, string provider, string? model)
+        {
+            _logger.LogDebug("Resolving {Provider} credential for user {UserId}", provider, userId);
+
+            var row = (await _unitOfWork.Repository<UserAiProvider, Guid>()
+                    .FindAsync(x => x.UserId == userId && x.IsActive
+                        && x.Provider.ToLower() == provider.ToLower(), asNoTracking: true))
+                .FirstOrDefault();
+
+            if (row == null)
+            {
+                _logger.LogWarning("User {UserId} has no active '{Provider}' credential", userId, provider);
+                throw new AiNotConfiguredException($"No active '{provider}' credential is configured for this user.");
+            }
+
+            return BuildCredential(userId, row, model);
+        }
+
+        private AiProviderCredential BuildCredential(Guid userId, UserAiProvider provider, string? model)
+        {
             if (string.IsNullOrWhiteSpace(provider.EncryptedApiKey))
             {
                 _logger.LogWarning(
@@ -85,14 +116,6 @@ namespace CmdNext.Service.Services
                     provider.Provider, userId);
                 throw new AiNotConfiguredException(
                     $"The AI provider '{provider.Provider}' is not supported by this application.");
-            }
-
-            var model = settings?.DefaultModel;
-            if (string.IsNullOrWhiteSpace(model))
-            {
-                _logger.LogWarning("No AI model configured for user {UserId}", userId);
-                throw new AiNotConfiguredException(
-                    "No AI model is configured for this user.");
             }
 
             string apiKey;

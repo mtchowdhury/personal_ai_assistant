@@ -22,33 +22,28 @@ namespace CmdNext.Service.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEmbeddingClientFactory _clientFactory;
+        private readonly IAiCredentialResolver _credentialResolver;
         private readonly EmbeddingOptions _options;
         private readonly ILogger<EntryEmbeddingService> _logger;
 
         public EntryEmbeddingService(
             IUnitOfWork unitOfWork,
             IEmbeddingClientFactory clientFactory,
+            IAiCredentialResolver credentialResolver,
             IOptions<EmbeddingOptions> options,
             ILogger<EntryEmbeddingService> logger)
         {
             _unitOfWork = unitOfWork;
             _clientFactory = clientFactory;
+            _credentialResolver = credentialResolver;
             _options = options.Value;
             _logger = logger;
         }
 
-        public bool IsConfigured =>
-            !string.IsNullOrWhiteSpace(_options.ApiKey) && !string.IsNullOrWhiteSpace(_options.Provider);
-
         private IRepository<EntryChunk, Guid> Chunks => _unitOfWork.Repository<EntryChunk, Guid>();
 
-        public async Task EmbedEntryAsync(Guid entryId, Guid spaceId, string title, string body, CancellationToken cancellationToken = default)
+        public async Task EmbedEntryAsync(Guid userId, Guid entryId, Guid spaceId, string title, string body, CancellationToken cancellationToken = default)
         {
-            if (!IsConfigured)
-            {
-                return;
-            }
-
             var chunkTexts = Chunk($"{title}\n\n{body}", _options.ChunkSize, _options.ChunkOverlap);
             if (chunkTexts.Count == 0)
             {
@@ -59,7 +54,13 @@ namespace CmdNext.Service.Services
             IReadOnlyList<Vector?> vectors;
             try
             {
-                vectors = await EmbedTextsAsync(chunkTexts, cancellationToken);
+                vectors = await EmbedTextsAsync(userId, chunkTexts, cancellationToken);
+            }
+            catch (AiNotConfiguredException)
+            {
+                // The user has no active credential for the embedding provider (e.g. no Mistral
+                // key). This is an expected, silent no-op — not every user has one configured.
+                return;
             }
             catch (Exception ex)
             {
@@ -103,9 +104,9 @@ namespace CmdNext.Service.Services
         }
 
         public async Task<IReadOnlyList<SemanticMatch>> SearchAsync(
-            string query, Guid? spaceId, IReadOnlyCollection<Guid>? entryIdFilter, int limit, CancellationToken cancellationToken = default)
+            Guid userId, string query, Guid? spaceId, IReadOnlyCollection<Guid>? entryIdFilter, int limit, CancellationToken cancellationToken = default)
         {
-            if (!IsConfigured || string.IsNullOrWhiteSpace(query))
+            if (string.IsNullOrWhiteSpace(query))
             {
                 return Array.Empty<SemanticMatch>();
             }
@@ -113,9 +114,14 @@ namespace CmdNext.Service.Services
             Vector queryVector;
             try
             {
-                var vectors = await EmbedTextsAsync(new[] { query }, cancellationToken);
+                var vectors = await EmbedTextsAsync(userId, new[] { query }, cancellationToken);
                 if (vectors[0] is not { } v) return Array.Empty<SemanticMatch>();
                 queryVector = v;
+            }
+            catch (AiNotConfiguredException)
+            {
+                // No active credential for the embedding provider — silent no-op, same as EmbedEntryAsync.
+                return Array.Empty<SemanticMatch>();
             }
             catch (Exception ex)
             {
@@ -141,15 +147,14 @@ namespace CmdNext.Service.Services
                 .ToList();
         }
 
-        private async Task<IReadOnlyList<Vector?>> EmbedTextsAsync(IReadOnlyList<string> texts, CancellationToken cancellationToken)
+        private async Task<IReadOnlyList<Vector?>> EmbedTextsAsync(Guid userId, IReadOnlyList<string> texts, CancellationToken cancellationToken)
         {
-            var credential = new AiProviderCredential
-            {
-                Provider = _options.Provider!,
-                ApiKey = _options.ApiKey!,
-                Model = _options.Model,
-                CacheKey = $"embedding:{_options.Provider}"
-            };
+            var provider = string.IsNullOrWhiteSpace(_options.Provider) ? "mistral" : _options.Provider!;
+
+            // Same encrypted per-user credential chat uses (ai.UserAiProviders) — not the user's
+            // default chat provider, but specifically whichever provider does embeddings, since
+            // not every chat provider (e.g. Anthropic) offers an embeddings API.
+            var credential = await _credentialResolver.ResolveForProviderAsync(userId, provider, _options.Model);
 
             var client = _clientFactory.GetClient(credential);
             var result = await client.GenerateAsync(texts, cancellationToken: cancellationToken);
