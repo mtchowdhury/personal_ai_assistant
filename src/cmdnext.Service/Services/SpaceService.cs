@@ -18,12 +18,15 @@ namespace CmdNext.Service.Services
     {
         private readonly IUnitOfWork _unitOfWork;
         private readonly IFileStorage _fileStorage;
+        private readonly IEntryEmbeddingService _embeddings;
         private readonly ILogger<SpaceService> _logger;
 
-        public SpaceService(IUnitOfWork unitOfWork, IFileStorage fileStorage, ILogger<SpaceService> logger)
+        public SpaceService(
+            IUnitOfWork unitOfWork, IFileStorage fileStorage, IEntryEmbeddingService embeddings, ILogger<SpaceService> logger)
         {
             _unitOfWork = unitOfWork;
             _fileStorage = fileStorage;
+            _embeddings = embeddings;
             _logger = logger;
         }
 
@@ -394,6 +397,8 @@ namespace CmdNext.Service.Services
 
             _logger.LogInformation("Created {Source} entry {EntryId} ({Type}) in space {SpaceId}", entry.Source, entry.Id, entry.Type, spaceId);
 
+            await _embeddings.EmbedEntryAsync(entry.Id, spaceId, entry.Title, entry.Body);
+
             var nodePaths = await GetNodePathsAsync(spaceId, new[] { entry.NodeId });
             return ToEntryDto(entry, nodePaths, 0);
         }
@@ -432,6 +437,11 @@ namespace CmdNext.Service.Services
             Entries.Update(entry);
             await _unitOfWork.SaveChangesAsync();
 
+            if (request.Title != null || request.Body != null)
+            {
+                await _embeddings.EmbedEntryAsync(entry.Id, spaceId, entry.Title, entry.Body);
+            }
+
             var nodePaths = await GetNodePathsAsync(spaceId, new[] { entry.NodeId });
             var attachmentCount = await Attachments.Query().CountAsync(a => a.EntryId == entryId);
             return ToEntryDto(entry, nodePaths, attachmentCount);
@@ -457,6 +467,8 @@ namespace CmdNext.Service.Services
             Entries.Update(entry);
             await _unitOfWork.SaveChangesAsync();
 
+            await _embeddings.EmbedEntryAsync(entry.Id, spaceId, entry.Title, entry.Body);
+
             var nodePaths = await GetNodePathsAsync(spaceId, new[] { entry.NodeId });
             var attachmentCount = await Attachments.Query().CountAsync(a => a.EntryId == entryId);
             return ToEntryDto(entry, nodePaths, attachmentCount);
@@ -474,6 +486,8 @@ namespace CmdNext.Service.Services
 
             Entries.Update(entry);
             await _unitOfWork.SaveChangesAsync();
+
+            await _embeddings.DeleteEntryChunksAsync(entryId);
         }
 
         // ---- Search ----
@@ -509,9 +523,48 @@ namespace CmdNext.Service.Services
                 return recent.Select(e => ToSearchResult(e, paths, 0, e.Body.Length > 240 ? e.Body[..240] + "…" : e.Body)).ToList();
             }
 
-            // Full-text search: a generated `tsvector` column ("SearchVector") over Title + Body
-            // exists in the database (see migration) with a GIN index; ts_rank orders by
-            // relevance. websearch_to_tsquery handles quoted phrases and plain multi-word input.
+            var mode = string.IsNullOrWhiteSpace(request.Mode) ? "hybrid" : request.Mode.ToLowerInvariant();
+
+            List<(Entry Entry, double Rank, string Snippet)> textHits = new();
+            if (mode is "text" or "hybrid")
+            {
+                textHits = await TextSearchAsync(q, term, limit);
+            }
+
+            List<(Entry Entry, double Rank, string Snippet)> semanticHits = new();
+            if (mode is "semantic" or "hybrid")
+            {
+                // Semantic search runs over the chunk table directly, then the candidate entry
+                // ids are re-applied against the same filtered `q` so space/node/type/tag/date
+                // scoping stays identical between modes.
+                var candidateIds = await q.Select(e => e.Id).ToListAsync();
+                semanticHits = await SemanticSearchAsync(candidateIds, request.SpaceId, term, limit);
+            }
+
+            // Rank: text hits first (they're exact/near-exact matches), then semantic-only hits
+            // for entries text search missed, in similarity order. Same entry from both keeps
+            // its text rank and isn't duplicated.
+            var merged = new List<(Entry Entry, double Rank, string Snippet)>(textHits);
+            var seen = textHits.Select(h => h.Entry.Id).ToHashSet();
+            foreach (var hit in semanticHits)
+            {
+                if (seen.Add(hit.Entry.Id)) merged.Add(hit);
+            }
+
+            var results = merged.Take(limit).ToList();
+            var nodePaths2 = await GetNodePathsAsync(results.Select(r => (r.Entry.SpaceId, r.Entry.NodeId)));
+            return results.Select(r => ToSearchResult(r.Entry, nodePaths2, r.Rank, r.Snippet)).ToList();
+        }
+
+        /// <summary>
+        /// Full-text search over the already-filtered query, with a trigram fallback for
+        /// typos/partial words when FTS finds nothing.
+        /// </summary>
+        private async Task<List<(Entry, double, string)>> TextSearchAsync(IQueryable<Entry> q, string term, int limit)
+        {
+            // A generated `tsvector` expression over Title + Body is covered by a GIN index
+            // (see migration); ts_rank orders by relevance. websearch_to_tsquery handles quoted
+            // phrases and plain multi-word input.
             var ftsQuery = q
                 .Where(e => EF.Functions.ToTsVector("simple", e.Title + " " + e.Body)
                     .Matches(EF.Functions.WebSearchToTsQuery("simple", term)))
@@ -525,21 +578,45 @@ namespace CmdNext.Service.Services
                 .Take(limit)
                 .ToList();
 
-            var results = ftsQuery.Select(x => x.Entry).ToList();
-
-            // Fall back to trigram similarity for typos / partial words when FTS finds nothing.
-            if (results.Count == 0)
+            if (ftsQuery.Count > 0)
             {
-                results = await q
-                    .Where(e => EF.Functions.TrigramsSimilarity(e.Title, term) > 0.2
-                             || EF.Functions.TrigramsSimilarity(e.Body, term) > 0.15)
-                    .OrderByDescending(e => EF.Functions.TrigramsSimilarity(e.Title, term))
-                    .Take(limit)
-                    .ToListAsync();
+                return ftsQuery.Select(x => (x.Entry, (double)x.Rank, BuildSnippet(x.Entry.Body, term))).ToList();
             }
 
-            var nodePaths2 = await GetNodePathsAsync(results.Select(e => (e.SpaceId, e.NodeId)));
-            return results.Select(e => ToSearchResult(e, nodePaths2, 1, BuildSnippet(e.Body, term))).ToList();
+            var trigramHits = await q
+                .Where(e => EF.Functions.TrigramsSimilarity(e.Title, term) > 0.2
+                         || EF.Functions.TrigramsSimilarity(e.Body, term) > 0.15)
+                .OrderByDescending(e => EF.Functions.TrigramsSimilarity(e.Title, term))
+                .Take(limit)
+                .ToListAsync();
+
+            return trigramHits.Select(e => (e, 1.0, BuildSnippet(e.Body, term))).ToList();
+        }
+
+        private async Task<List<(Entry, double, string)>> SemanticSearchAsync(
+            List<Guid> candidateEntryIds, Guid? spaceId, string term, int limit)
+        {
+            if (candidateEntryIds.Count == 0) return new List<(Entry, double, string)>();
+
+            var matches = await _embeddings.SearchAsync(term, spaceId, candidateEntryIds, limit);
+            if (matches.Count == 0) return new List<(Entry, double, string)>();
+
+            var entryIds = matches.Select(m => m.EntryId).Distinct().ToList();
+            var entries = await Entries.Query().AsNoTracking()
+                .Where(e => entryIds.Contains(e.Id))
+                .ToDictionaryAsync(e => e.Id, e => e);
+
+            // One entry can have several matching chunks; keep its best-scoring one.
+            return matches
+                .GroupBy(m => m.EntryId)
+                .Where(g => entries.ContainsKey(g.Key))
+                .Select(g =>
+                {
+                    var best = g.OrderByDescending(m => m.Score).First();
+                    return (entries[g.Key], best.Score, best.ChunkText.Length > 240 ? best.ChunkText[..240] + "…" : best.ChunkText);
+                })
+                .OrderByDescending(x => x.Item2)
+                .ToList();
         }
 
         // ---- Attachment ----

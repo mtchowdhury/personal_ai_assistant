@@ -16,6 +16,7 @@ import { LoadingSpinnerComponent } from '@core/components/loading-spinner/loadin
 export class SpaceSearchComponent implements OnInit {
   query = '';
   spaceId: string | null = null;
+  mode: 'hybrid' | 'text' | 'semantic' = 'hybrid';
   spaces: Space[] = [];
   results: SearchResult[] = [];
   hasSearched = false;
@@ -44,6 +45,7 @@ export class SpaceSearchComponent implements OnInit {
     this.spacesService.search({
       spaceId: this.spaceId || undefined,
       query: term || undefined,
+      mode: this.mode,
       limit: 30
     }).subscribe({
       next: (results) => {

@@ -27,6 +27,7 @@ namespace CmdNext.EF.Migration
                 npgsqlOptions.MigrationsAssembly("cmdnext.Migration");
                 // History lives in the "ai" schema (where InitialCreate recorded it).
                 npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "ai");
+                npgsqlOptions.UseVector();
             });
 
             return new CmdNextDbContext(builder.Options);

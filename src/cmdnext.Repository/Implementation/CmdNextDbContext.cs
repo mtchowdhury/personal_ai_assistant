@@ -33,6 +33,7 @@ namespace CmdNext.Repository.Implementation
         public DbSet<Node> Nodes { get; set; }
         public DbSet<Entry> Entries { get; set; }
         public DbSet<Attachment> Attachments { get; set; }
+        public DbSet<EntryChunk> EntryChunks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -56,6 +57,7 @@ namespace CmdNext.Repository.Implementation
             modelBuilder.Entity<Node>().ToTable("Nodes", "spaces");
             modelBuilder.Entity<Entry>().ToTable("Entries", "spaces");
             modelBuilder.Entity<Attachment>().ToTable("Attachments", "spaces");
+            modelBuilder.Entity<EntryChunk>().ToTable("EntryChunks", "spaces");
 
             // Configure relationships
             modelBuilder.Entity<AiChatSession>()
@@ -175,6 +177,21 @@ namespace CmdNext.Repository.Implementation
             modelBuilder.Entity<Attachment>().HasIndex(a => a.SpaceId);
             modelBuilder.Entity<Attachment>().HasIndex(a => a.NodeId);
             modelBuilder.Entity<Attachment>().HasIndex(a => a.EntryId);
+
+            // EntryChunk (embeddings for semantic search)
+            modelBuilder.Entity<EntryChunk>()
+                .HasOne(c => c.Entry)
+                .WithMany()
+                .HasForeignKey(c => c.EntryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Dimensions must match AI:Embedding:Dimensions in config (mistral-embed = 1024).
+            // Changing the embedding model's dimensionality requires a new migration either way,
+            // since pgvector columns are fixed-width.
+            modelBuilder.Entity<EntryChunk>().Property(c => c.Embedding).HasColumnType("vector(1024)");
+
+            modelBuilder.Entity<EntryChunk>().HasIndex(c => c.EntryId);
+            modelBuilder.Entity<EntryChunk>().HasIndex(c => c.SpaceId);
         }
     }
 }

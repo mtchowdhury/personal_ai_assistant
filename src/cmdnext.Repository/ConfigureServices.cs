@@ -24,6 +24,7 @@ namespace CmdNext.Repository
                 options.UseNpgsql(connectionString, npgsqlOptions =>
                 {
                     npgsqlOptions.MigrationsAssembly("cmdnext.Migration");
+                    npgsqlOptions.UseVector();
                 });
             });
 

@@ -17,6 +17,16 @@
       </button>
     </div>
 
+    <div class="mode-toggle">
+      <button type="button" [class.active]="mode === 'hybrid'" (click)="mode = 'hybrid'">Hybrid</button>
+      <button type="button" [class.active]="mode === 'text'" (click)="mode = 'text'">Text only</button>
+      <button type="button" [class.active]="mode === 'semantic'" (click)="mode = 'semantic'">Meaning only</button>
+      <span class="mode-hint">
+        Hybrid combines exact-word matches with meaning-based matches; meaning-only needs an
+        embedding key configured and returns nothing if one isn't set up.
+      </span>
+    </div>
+
     <app-loading-spinner *ngIf="isSearching" label="Searching…"></app-loading-spinner>
 
     <div *ngIf="!isSearching && hasSearched && results.length === 0" class="empty">

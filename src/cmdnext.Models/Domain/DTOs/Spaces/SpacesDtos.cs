@@ -216,8 +216,12 @@ namespace CmdNext.Models.Domain.DTOs.Spaces
         public List<string>? Tags { get; set; }
         public DateTime? From { get; set; }
         public DateTime? To { get; set; }
-        /// <summary>"text" (default now) | "semantic" | "hybrid" (semantic added in phase 2).</summary>
-        public string Mode { get; set; } = "text";
+        /// <summary>
+        /// "hybrid" (default) runs text + semantic and merges; "text" is full-text/trigram only;
+        /// "semantic" is embedding similarity only. Semantic modes return nothing (not an error)
+        /// when no embedding API key is configured — callers still get text results in hybrid mode.
+        /// </summary>
+        public string Mode { get; set; } = "hybrid";
         public int Limit { get; set; } = 20;
     }
 

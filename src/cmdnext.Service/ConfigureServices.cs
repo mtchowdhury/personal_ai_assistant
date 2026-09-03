@@ -31,6 +31,7 @@ namespace CmdNext.Service
             services.AddScoped<ISpaceService, SpaceService>();
             services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
             services.AddScoped<IAiToolProvider, SpacesAiToolProvider>();
+            services.AddScoped<IEntryEmbeddingService, EntryEmbeddingService>();
 
             // Configure Crypto Helper
             var cryptoSettings = configuration.GetSection("CryptoSettings");
