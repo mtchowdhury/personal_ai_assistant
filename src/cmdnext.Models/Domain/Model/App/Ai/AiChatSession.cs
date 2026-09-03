@@ -27,6 +27,13 @@ namespace CmdNext.Models.Domain.Model.App.Ai
 
         public bool IsArchived { get; set; }
 
+        /// <summary>
+        /// The space this chat is scoped to, if any. When set, the system prompt gets a block
+        /// with the space's conventions/state/node tree/entry types, and Spaces tools default
+        /// to this space.
+        /// </summary>
+        public Guid? SpaceId { get; set; }
+
         public ICollection<AiChatMessage>? Messages { get; set; }
     }
 }

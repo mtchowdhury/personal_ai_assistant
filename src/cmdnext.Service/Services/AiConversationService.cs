@@ -31,7 +31,8 @@ namespace CmdNext.Service.Services
         private readonly IAiChatService _aiChatService;
         private readonly AiOptions _options;
         private readonly ILogger<AiConversationService> _logger;
-        private readonly IFinanceAiToolsFactory _financeToolsFactory;
+        private readonly IEnumerable<IAiToolProvider> _toolProviders;
+        private readonly ISpaceService _spaces;
 
         public AiConversationService(
             IUnitOfWork unitOfWork,
@@ -40,7 +41,8 @@ namespace CmdNext.Service.Services
             IAiChatService aiChatService,
             IOptions<AiOptions> options,
             ILogger<AiConversationService> logger,
-            IFinanceAiToolsFactory financeToolsFactory)
+            IEnumerable<IAiToolProvider> toolProviders,
+            ISpaceService spaces)
         {
             _unitOfWork = unitOfWork;
             _httpContextAccessor = httpContextAccessor;
@@ -48,10 +50,11 @@ namespace CmdNext.Service.Services
             _aiChatService = aiChatService;
             _options = options.Value;
             _logger = logger;
-            _financeToolsFactory = financeToolsFactory;
+            _toolProviders = toolProviders;
+            _spaces = spaces;
         }
 
-        public async Task<AiChatSessionDto> CreateSessionAsync(Guid userId, string? title = null, string? profileName = null)
+        public async Task<AiChatSessionDto> CreateSessionAsync(Guid userId, string? title = null, string? profileName = null, Guid? spaceId = null)
         {
             var session = new AiChatSession
             {
@@ -59,6 +62,7 @@ namespace CmdNext.Service.Services
                 UserId = userId,
                 Title = string.IsNullOrWhiteSpace(title) ? null : Truncate(title, TitleMaxLength),
                 ProfileName = string.IsNullOrWhiteSpace(profileName) ? _options.DefaultProfile : profileName,
+                SpaceId = spaceId,
                 CreatedOn = DateTime.UtcNow
             };
 
@@ -209,14 +213,21 @@ namespace CmdNext.Service.Services
                             || x.Sequence > SequenceOf(history, session.SummarizedUpToMessageId.Value))
                 .ToList();
 
+            var toolContext = new AiToolContext(session.SpaceId, convertedAttachments);
+            var tools = new List<Microsoft.Extensions.AI.AITool>();
+            foreach (var provider in _toolProviders)
+            {
+                tools.AddRange(await provider.GetToolsAsync(userId, toolContext));
+            }
+
             var request = new AiChatRequest
             {
                 Credential = credential,
                 Messages = ToChatMessages(pending),
-                SystemPrompt = ResolveSystemPrompt(session.ProfileName),
+                SystemPrompt = await ResolveSystemPromptAsync(userId, session),
                 ConversationSummary = session.SummaryText,
                 ProfileName = session.ProfileName,
-                Tools = await _financeToolsFactory.Create(userId).GetToolsAsync()
+                Tools = tools
             };
 
             var buffer = new StringBuilder();
@@ -423,20 +434,61 @@ namespace CmdNext.Service.Services
             return liveCount > _options.CompactionThreshold;
         }
 
-        private string? ResolveSystemPrompt(string? profileName)
+        private async Task<string?> ResolveSystemPromptAsync(Guid userId, AiChatSession session)
         {
-            var name = string.IsNullOrWhiteSpace(profileName)
+            var name = string.IsNullOrWhiteSpace(session.ProfileName)
                 ? _options.DefaultProfile
-                : profileName;
+                : session.ProfileName;
 
-            if (string.IsNullOrWhiteSpace(name))
+            string? basePrompt = null;
+            if (!string.IsNullOrWhiteSpace(name))
             {
-                return null;
+                basePrompt = _options.Profiles.TryGetValue(name, out var profile) ? profile.SystemPrompt : null;
             }
 
-            return _options.Profiles.TryGetValue(name, out var profile)
-                ? profile.SystemPrompt
-                : null;
+            if (session.SpaceId is not { } spaceId)
+            {
+                return basePrompt;
+            }
+
+            var spaceBlock = await BuildSpaceBlockAsync(userId, spaceId);
+            return string.IsNullOrWhiteSpace(basePrompt) ? spaceBlock : $"{basePrompt}\n\n{spaceBlock}";
+        }
+
+        /// <summary>
+        /// Builds the system-prompt addendum for a space-scoped chat: conventions, progress
+        /// state, node tree, and entry types, so the model can call Spaces tools correctly
+        /// without asking the user to repeat context every message.
+        /// </summary>
+        private async Task<string> BuildSpaceBlockAsync(Guid userId, Guid spaceId)
+        {
+            try
+            {
+                var space = await _spaces.GetSpaceAsync(userId, spaceId);
+                var nodes = await _spaces.GetNodesAsync(userId, spaceId);
+
+                var sb = new StringBuilder();
+                sb.AppendLine($"You are currently working inside the space \"{space.Name}\" (id: {space.Id}, kind: {space.Kind}).");
+                if (!string.IsNullOrWhiteSpace(space.Description)) sb.AppendLine($"Description: {space.Description}");
+                if (!string.IsNullOrWhiteSpace(space.Conventions)) sb.AppendLine($"Conventions: {space.Conventions}");
+                sb.AppendLine($"Progress state: {space.StateJson}");
+                sb.AppendLine($"Entry types and their fields: {space.SchemaJson}");
+                sb.AppendLine(nodes.Count == 0
+                    ? "Node tree: (empty — create nodes with add_node as needed)"
+                    : "Node tree:\n" + string.Join("\n", nodes.Take(200).Select(n => $"  {n.Path} (id: {n.Id})")));
+                sb.AppendLine(
+                    "Use the Spaces tools (list_spaces, get_space, search_entries, get_entry, list_entries, " +
+                    "add_entry, append_to_entry, add_node, update_space_state, save_attachment) for anything about " +
+                    "this space; default spaceId to this space unless the user clearly means another one. " +
+                    "Only call save_attachment when the user explicitly asks to save/keep/file an attachment — " +
+                    "most attached images or files are for this reply only and should not be saved.");
+
+                return sb.ToString();
+            }
+            catch (KeyNotFoundException)
+            {
+                return string.Empty;
+            }
         }
 
         private async Task<AiChatSession> LoadOwnedSessionAsync(Guid sessionId, Guid userId)
@@ -565,7 +617,8 @@ namespace CmdNext.Service.Services
                 LastMessageAt = session.LastMessageAt,
                 CreatedOn = session.CreatedOn,
                 Provider = session.Provider,
-                Model = session.Model
+                Model = session.Model,
+                SpaceId = session.SpaceId
             };
         }
 

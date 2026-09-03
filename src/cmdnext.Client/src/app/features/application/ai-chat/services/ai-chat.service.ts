@@ -11,6 +11,7 @@ export interface AiChatSession {
   createdOn: string | null;
   provider?: string | null;
   model?: string | null;
+  spaceId?: string | null;
 }
 
 export interface AiChatMessage {
@@ -68,8 +69,8 @@ export class AiChatService {
     return this.http.get<AiChatSessionDetail>(`${this.baseUrl}/sessions/${sessionId}`);
   }
 
-  createSession(title?: string, profileName?: string): Observable<AiChatSession> {
-    return this.http.post<AiChatSession>(`${this.baseUrl}/sessions`, { title, profileName });
+  createSession(title?: string, profileName?: string, spaceId?: string | null): Observable<AiChatSession> {
+    return this.http.post<AiChatSession>(`${this.baseUrl}/sessions`, { title, profileName, spaceId });
   }
 
   renameSession(sessionId: string, title: string): Observable<unknown> {

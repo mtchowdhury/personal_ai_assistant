@@ -66,6 +66,8 @@ namespace CmdNext.Repository.Implementation
 
             // Configure indexes
             modelBuilder.Entity<AiChatSession>().HasIndex(s => s.UserId);
+            // Loose reference (no FK), same convention as UserId — spaces is a separate schema.
+            modelBuilder.Entity<AiChatSession>().HasIndex(s => s.SpaceId);
             modelBuilder.Entity<AiChatMessage>().HasIndex(m => m.SessionId);
             modelBuilder.Entity<AiUsageLog>().HasIndex(l => l.UserId);
             modelBuilder.Entity<UserAiSettings>().HasIndex(s => s.UserId);

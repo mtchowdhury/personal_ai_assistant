@@ -52,6 +52,7 @@
     <div class="ai-chat-header">
       <div class="ai-chat-header-left">
         <h2 *ngIf="activeChat">{{ activeChat.title || 'New chat' }}</h2>
+        <span class="ai-chat-space-badge" *ngIf="activeChat?.spaceId" title="This chat has access to the space's notes and tools">🗂️ Space chat</span>
         <span class="ai-chat-status" *ngIf="activeChat?.provider || activeChat?.model">
           {{ activeChat?.provider }} / {{ activeChat?.model }}
         </span>

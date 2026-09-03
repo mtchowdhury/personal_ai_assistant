@@ -16,6 +16,9 @@ namespace CmdNext.Models.Domain.DTOs.Ai
         public string? Provider { get; set; }
 
         public string? Model { get; set; }
+
+        /// <summary>The space this chat is scoped to, if any.</summary>
+        public Guid? SpaceId { get; set; }
     }
 
     public class AiChatSessionDetailDto : AiChatSessionDto
@@ -51,6 +54,9 @@ namespace CmdNext.Models.Domain.DTOs.Ai
         public string? Title { get; set; }
 
         public string? ProfileName { get; set; }
+
+        /// <summary>Scope this chat to a space; its conventions/state/tree are added to the system prompt.</summary>
+        public Guid? SpaceId { get; set; }
     }
 
     public class SendAiChatMessageRequest

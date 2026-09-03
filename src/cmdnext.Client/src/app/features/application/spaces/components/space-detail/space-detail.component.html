@@ -6,6 +6,7 @@
       <span class="kind-badge" *ngIf="space">{{ space.kind }}</span>
     </div>
     <div class="header-right" *ngIf="space">
+      <a [routerLink]="['/ai-chat']" [queryParams]="{ spaceId: spaceId }" class="header-btn">💬 Chat in this space</a>
       <a [routerLink]="['/spaces', 'search']" [queryParams]="{ spaceId: spaceId }" class="header-btn">🔍 Search</a>
       <a [routerLink]="['/spaces', spaceId, 'settings']" class="header-btn">⚙ Settings</a>
       <button type="button" class="header-btn primary" (click)="addEntry()">+ Entry</button>

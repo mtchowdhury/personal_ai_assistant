@@ -25,10 +25,12 @@ namespace CmdNext.Service
             // Configure Finance Service
             services.AddScoped<IFinanceService, FinanceService>();
             services.AddScoped<IFinanceAiToolsFactory, FinanceAiToolsFactory>();
+            services.AddScoped<IAiToolProvider, FinanceAiToolProvider>();
 
             // Configure Spaces Service
             services.AddScoped<ISpaceService, SpaceService>();
             services.AddSingleton<IFileStorage, LocalDiskFileStorage>();
+            services.AddScoped<IAiToolProvider, SpacesAiToolProvider>();
 
             // Configure Crypto Helper
             var cryptoSettings = configuration.GetSection("CryptoSettings");

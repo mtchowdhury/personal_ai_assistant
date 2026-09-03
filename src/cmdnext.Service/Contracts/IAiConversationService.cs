@@ -9,7 +9,7 @@ namespace CmdNext.Service.Contracts
 {
     public interface IAiConversationService
     {
-        Task<AiChatSessionDto> CreateSessionAsync(Guid userId, string? title = null, string? profileName = null);
+        Task<AiChatSessionDto> CreateSessionAsync(Guid userId, string? title = null, string? profileName = null, Guid? spaceId = null);
 
         Task<List<AiChatSessionDto>> GetSessionsAsync(Guid userId);
 

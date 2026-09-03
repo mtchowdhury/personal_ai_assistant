@@ -9,7 +9,7 @@ import {
 } from '@features/application/ai-chat/services/ai-chat.service';
 import { NotificationService } from '@core/services/notification.service';
 import { AuthService } from '@core/services/auth.service';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ChatMarkdownPipe } from '@shared/pipes/chat-markdown.pipe';
 import { MatDialog } from '@angular/material/dialog';
 import { AiConfigComponent } from '@features/application/ai-chat/components/ai-config/ai-config.component';
@@ -43,6 +43,7 @@ interface ChatSessionView {
   loaded: boolean;
   provider?: string | null;
   model?: string | null;
+  spaceId?: string | null;
 }
 
 @Component({
@@ -92,11 +93,15 @@ export class AiChatComponent implements OnInit {
 
   private abortController: AbortController | null = null;
 
+  /** Set when this chat was opened from a space ("Chat in this space"); scopes new sessions to it. */
+  private pendingSpaceId: string | null = null;
+
   constructor(
     private aiChatService: AiChatService,
     private notification: NotificationService,
     private auth: AuthService,
-    private router: Router
+    private router: Router,
+    private route: ActivatedRoute
   ) {}
 
   // Initials for the user avatar, derived from their profile (falls back to email).
@@ -113,7 +118,14 @@ export class AiChatComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.loadSessions();
+    this.pendingSpaceId = this.route.snapshot.queryParamMap.get('spaceId');
+    if (this.pendingSpaceId) {
+      // Opened from a space ("Chat in this space") — always start a fresh scoped
+      // session rather than resuming whatever unscoped chat was last active.
+      this.loadSessions(/* selectMostRecent */ false);
+    } else {
+      this.loadSessions();
+    }
   }
 
   get activeChat(): ChatSessionView | undefined {
@@ -126,13 +138,15 @@ export class AiChatComponent implements OnInit {
     return this.chats.filter(chat => chat.title.toLowerCase().includes(query));
   }
 
-  loadSessions(): void {
+  loadSessions(selectMostRecent = true): void {
     this.aiChatService.getSessions().subscribe({
       next: sessions => {
         this.chats = sessions.map(s => this.toView(s));
-        if (this.chats.length) {
+        if (this.pendingSpaceId) {
+          this.startNewChat(this.pendingSpaceId);
+        } else if (selectMostRecent && this.chats.length) {
           this.selectChat(this.chats[0].id);
-        } else {
+        } else if (!this.chats.length) {
           this.startNewChat();
         }
       },
@@ -140,14 +154,15 @@ export class AiChatComponent implements OnInit {
     });
   }
 
-  startNewChat(): void {
-    this.aiChatService.createSession().subscribe({
+  startNewChat(spaceId?: string | null): void {
+    this.aiChatService.createSession(undefined, undefined, spaceId).subscribe({
       next: session => {
         const view = this.toView(session);
         view.loaded = true;
         this.chats = [view, ...this.chats];
         this.activeChatId = view.id;
         this.inputControl.setValue('');
+        this.pendingSpaceId = null;
       },
       error: () => this.notification.showError('Could not start a new chat.')
     });
@@ -412,7 +427,8 @@ export class AiChatComponent implements OnInit {
       messages: [],
       loaded: false,
       provider: session.provider,
-      model: session.model
+      model: session.model,
+      spaceId: session.spaceId
     };
   }
 

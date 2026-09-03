@@ -69,7 +69,7 @@ namespace CmdNext.Api.Controllers
         {
             try
             {
-                var session = await _conversationService.CreateSessionAsync(UserId, request.Title, request.ProfileName);
+                var session = await _conversationService.CreateSessionAsync(UserId, request.Title, request.ProfileName, request.SpaceId);
                 return Ok(session);
             }
             catch (UnauthorizedAccessException ex)
