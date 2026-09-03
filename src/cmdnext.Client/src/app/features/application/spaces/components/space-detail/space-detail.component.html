@@ -37,6 +37,7 @@
           <button type="button" class="tree-item" [class.active]="selectedNodeId === null"
                   (click)="selectNode(null)">
             <span class="tree-label">All entries</span>
+            <span class="tree-count" *ngIf="!entriesLoading">{{ entries.length }}</span>
           </button>
           <button type="button" class="tree-item" *ngFor="let n of flatTree"
                   [class.active]="selectedNodeId === n.id"
