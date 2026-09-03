@@ -1,0 +1,98 @@
+<div class="entry-page">
+  <header class="entry-header">
+    <button type="button" class="link-btn" (click)="cancel()">← {{ space?.name }}</button>
+    <h1>{{ isNew ? 'New Entry' : title }}</h1>
+    <span class="source-badge" *ngIf="!isNew && source === 'ai'">✨ from AI</span>
+  </header>
+
+  <app-loading-spinner *ngIf="isLoading" label="Loading entry…"></app-loading-spinner>
+
+  <main class="entry-main" *ngIf="!isLoading">
+    <section class="field-group" *ngIf="entryTypes.length > 1">
+      <label>Type</label>
+      <select [(ngModel)]="type" (ngModelChange)="onTypeChange()" [disabled]="!isNew">
+        <option *ngFor="let t of entryTypes" [value]="t.type">{{ t.label }}</option>
+      </select>
+    </section>
+
+    <section class="field-group">
+      <label for="title">Title</label>
+      <input id="title" type="text" [(ngModel)]="title" placeholder="Entry title" />
+    </section>
+
+    <section class="field-row">
+      <div class="field-group">
+        <label for="occurredOn">Date</label>
+        <input id="occurredOn" type="date" [(ngModel)]="occurredOn" />
+      </div>
+      <div class="field-group">
+        <label for="dueOn">Due (optional)</label>
+        <input id="dueOn" type="date" [(ngModel)]="dueOn" />
+      </div>
+      <div class="field-group">
+        <label for="status">Status (optional)</label>
+        <input id="status" type="text" [(ngModel)]="status" placeholder="e.g. open, done" />
+      </div>
+    </section>
+
+    <section class="field-group" *ngIf="currentFields().length">
+      <label>Details</label>
+      <div class="fields-grid">
+        <div class="mini-field" *ngFor="let f of currentFields()">
+          <label>{{ f.name }}</label>
+          <select *ngIf="f.type === 'select'" [(ngModel)]="fieldValues[f.name]">
+            <option value=""></option>
+            <option *ngFor="let opt of f.options" [value]="opt">{{ opt }}</option>
+          </select>
+          <input *ngIf="f.type !== 'select'" type="text" [(ngModel)]="fieldValues[f.name]" />
+        </div>
+      </div>
+    </section>
+
+    <section class="field-group">
+      <label for="tags">Tags (comma separated)</label>
+      <input id="tags" type="text" [(ngModel)]="tagsText" placeholder="e.g. arpeggio, technique" />
+    </section>
+
+    <section class="field-group">
+      <label for="body">Body</label>
+      <textarea id="body" rows="14" [(ngModel)]="body" placeholder="Markdown notes…"></textarea>
+    </section>
+
+    <div class="form-actions">
+      <button type="button" class="btn danger" *ngIf="!isNew" (click)="deleteEntry()">Delete</button>
+      <div class="spacer"></div>
+      <button type="button" class="btn" (click)="cancel()">Cancel</button>
+      <button type="button" class="btn primary" (click)="save()" [disabled]="isSaving">
+        {{ isSaving ? 'Saving…' : 'Save' }}
+      </button>
+    </div>
+
+    <section class="append-section" *ngIf="!isNew">
+      <button type="button" class="link-btn" (click)="showAppend = !showAppend">
+        + Append a dated update
+      </button>
+      <div class="append-form" *ngIf="showAppend">
+        <textarea rows="3" [(ngModel)]="appendText" placeholder="What happened since?"></textarea>
+        <button type="button" class="btn primary" (click)="submitAppend()">Append</button>
+      </div>
+    </section>
+
+    <section class="attachments-section" *ngIf="!isNew">
+      <div class="attachments-header">
+        <span>Attachments</span>
+        <label class="upload-btn">
+          + Add file
+          <input type="file" (change)="onFileSelected($event)" hidden />
+        </label>
+      </div>
+      <div class="attachment-list" *ngIf="attachments.length">
+        <div class="attachment-row" *ngFor="let a of attachments">
+          <a [href]="attachmentUrl(a)" target="_blank">{{ a.fileName }}</a>
+          <button type="button" class="link-btn danger" (click)="deleteAttachment(a)">Remove</button>
+        </div>
+      </div>
+      <p class="empty" *ngIf="!attachments.length">No attachments yet.</p>
+    </section>
+  </main>
+</div>

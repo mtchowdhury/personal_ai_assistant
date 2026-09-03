@@ -1,0 +1,51 @@
+<div class="settings-page">
+  <header class="settings-header">
+    <button type="button" class="link-btn" (click)="cancel()">← {{ space?.name }}</button>
+    <h1>Settings</h1>
+  </header>
+
+  <app-loading-spinner *ngIf="isLoading" label="Loading settings…"></app-loading-spinner>
+
+  <main class="settings-main" *ngIf="!isLoading">
+    <section class="field-group">
+      <label for="name">Name</label>
+      <input id="name" type="text" [(ngModel)]="name" />
+    </section>
+
+    <section class="field-group">
+      <label for="description">Description</label>
+      <input id="description" type="text" [(ngModel)]="description" />
+    </section>
+
+    <section class="field-group">
+      <label for="conventions">Conventions for the AI</label>
+      <textarea id="conventions" rows="6" [(ngModel)]="conventions"
+        placeholder="How should the assistant help in this space?"></textarea>
+    </section>
+
+    <div class="form-actions">
+      <button type="button" class="btn primary" (click)="save()" [disabled]="isSaving">
+        {{ isSaving ? 'Saving…' : 'Save' }}
+      </button>
+    </div>
+
+    <section class="entry-types-section">
+      <h2>Entry types</h2>
+      <p class="hint">Defined when this space was created; used to build the entry form.</p>
+      <div class="type-list">
+        <div class="type-row" *ngFor="let t of entryTypes">
+          <span class="type-label">{{ t.label }}</span>
+          <span class="type-fields" *ngIf="t.fields.length">
+            {{ t.fields.length }} field(s): {{ fieldNames(t) }}
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <section class="danger-section">
+      <h2>Archive</h2>
+      <p class="hint">Archived spaces are hidden from the list but not deleted. You can still reach entries via search.</p>
+      <button type="button" class="btn danger" (click)="archive()">Archive this space</button>
+    </section>
+  </main>
+</div>

@@ -21,5 +21,10 @@ export const routes: Routes = [
     path: 'finance',
     loadChildren: () => import('./finance/finance.routes').then(m => m.routes),
     canActivate: [authGuard]
+  },
+  {
+    path: 'spaces',
+    loadChildren: () => import('./spaces/spaces.routes').then(m => m.routes),
+    canActivate: [authGuard]
   }
 ];

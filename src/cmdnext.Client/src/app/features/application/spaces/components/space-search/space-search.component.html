@@ -1,0 +1,38 @@
+<div class="search-page">
+  <header class="search-header">
+    <button type="button" class="link-btn" (click)="cancel()">← Spaces</button>
+    <h1>Search</h1>
+  </header>
+
+  <main class="search-main">
+    <div class="search-bar">
+      <select [(ngModel)]="spaceId">
+        <option [value]="null">All spaces</option>
+        <option *ngFor="let s of spaces" [value]="s.id">{{ s.name }}</option>
+      </select>
+      <input type="text" [(ngModel)]="query" placeholder="D major arpeggio, restaurant name, a person…"
+             (keyup.enter)="search()" />
+      <button type="button" class="btn primary" (click)="search()" [disabled]="isSearching">
+        {{ isSearching ? 'Searching…' : 'Search' }}
+      </button>
+    </div>
+
+    <app-loading-spinner *ngIf="isSearching" label="Searching…"></app-loading-spinner>
+
+    <div *ngIf="!isSearching && hasSearched && results.length === 0" class="empty">
+      No matches. Try a different word, or check the space filter.
+    </div>
+
+    <div class="result-list" *ngIf="!isSearching">
+      <button type="button" class="result-card" *ngFor="let r of results" (click)="openResult(r)">
+        <div class="result-top">
+          <span class="result-space">{{ r.spaceName }}</span>
+          <span class="result-path" *ngIf="r.nodePath">/ {{ r.nodePath }}</span>
+          <span class="result-type">{{ r.type }}</span>
+        </div>
+        <span class="result-title">{{ r.title }}</span>
+        <span class="result-snippet">{{ r.snippet }}</span>
+      </button>
+    </div>
+  </main>
+</div>

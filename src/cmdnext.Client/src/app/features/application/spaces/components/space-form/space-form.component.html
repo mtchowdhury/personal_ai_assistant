@@ -1,0 +1,49 @@
+<div class="form-page">
+  <header class="form-header">
+    <button type="button" class="link-btn" (click)="cancel()">← Spaces</button>
+    <h1>New Space</h1>
+  </header>
+
+  <main class="form-main">
+    <section class="field-group">
+      <label>What kind of space is this?</label>
+      <div class="kind-grid">
+        <button type="button" class="kind-card" *ngFor="let t of templates"
+                [class.selected]="selectedKind === t.kind" (click)="selectKind(t.kind)">
+          <span class="kind-label">{{ t.label }}</span>
+          <span class="kind-desc">{{ t.description }}</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="field-group" *ngIf="selectedTemplate as t">
+      <span class="hint">This starts with entry types: {{ t.entryTypes.length ? '' : 'none yet' }}
+        <ng-container *ngFor="let et of t.entryTypes; let last = last">{{ et.label }}<ng-container *ngIf="!last">, </ng-container></ng-container>
+        — you can add or edit these later in settings.
+      </span>
+    </section>
+
+    <section class="field-group">
+      <label for="name">Name</label>
+      <input id="name" type="text" [(ngModel)]="name" placeholder="e.g. German (VHS), Guitar, People" />
+    </section>
+
+    <section class="field-group">
+      <label for="description">Description (optional)</label>
+      <input id="description" type="text" [(ngModel)]="description" placeholder="One line about this space" />
+    </section>
+
+    <section class="field-group">
+      <label for="conventions">Conventions for the AI (optional)</label>
+      <textarea id="conventions" rows="4" [(ngModel)]="conventions"
+        placeholder="How should the assistant help in this space? e.g. 'Grammar rules in English first, examples in German. Save every image I attach as a material.'"></textarea>
+    </section>
+
+    <div class="form-actions">
+      <button type="button" class="btn" (click)="cancel()">Cancel</button>
+      <button type="button" class="btn primary" (click)="save()" [disabled]="isSaving">
+        {{ isSaving ? 'Creating…' : 'Create Space' }}
+      </button>
+    </div>
+  </main>
+</div>

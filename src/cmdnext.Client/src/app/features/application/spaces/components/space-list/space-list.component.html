@@ -1,0 +1,33 @@
+<div class="spaces-page">
+  <header class="spaces-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Home</button>
+      <h1>Spaces</h1>
+    </div>
+    <div class="header-right">
+      <a routerLink="/spaces/search" class="header-btn">🔍 Search</a>
+      <a routerLink="/spaces/new" class="header-btn primary">+ New Space</a>
+    </div>
+  </header>
+
+  <main class="spaces-main">
+    <app-loading-spinner *ngIf="isLoading" label="Loading spaces…"></app-loading-spinner>
+
+    <ng-container *ngIf="!isLoading">
+      <div *ngIf="spaces.length === 0" class="empty">
+        <p>No spaces yet. Create one for anything you want to track over time — a course, an
+          instrument, a journal, a project.</p>
+        <a routerLink="/spaces/new" class="header-btn primary">+ New Space</a>
+      </div>
+
+      <div class="space-grid">
+        <button type="button" class="space-card" *ngFor="let s of spaces" (click)="open(s)">
+          <span class="space-icon">{{ icon(s.kind) }}</span>
+          <span class="space-name">{{ s.name }}</span>
+          <span class="space-kind">{{ s.kind }}</span>
+          <span class="space-state">{{ stateLine(s) }}</span>
+        </button>
+      </div>
+    </ng-container>
+  </main>
+</div>
