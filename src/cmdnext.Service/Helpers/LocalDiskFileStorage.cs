@@ -52,7 +52,7 @@ namespace CmdNext.Service.Helpers
 
         public Task<Stream> OpenAsync(string relativePath, CancellationToken cancellationToken = default)
         {
-            var absolutePath = Path.Combine(GetStorageRoot(), relativePath);
+            var absolutePath = ResolveWithinRoot(relativePath);
             if (!File.Exists(absolutePath))
                 throw new FileNotFoundException("Stored file not found.", relativePath);
 
@@ -62,7 +62,7 @@ namespace CmdNext.Service.Helpers
 
         public Task DeleteAsync(string relativePath, CancellationToken cancellationToken = default)
         {
-            var absolutePath = Path.Combine(GetStorageRoot(), relativePath);
+            var absolutePath = ResolveWithinRoot(relativePath);
             if (File.Exists(absolutePath)) File.Delete(absolutePath);
             return Task.CompletedTask;
         }
@@ -72,6 +72,23 @@ namespace CmdNext.Service.Helpers
             var root = Path.Combine(_environment.ContentRootPath, "storage");
             Directory.CreateDirectory(root);
             return root;
+        }
+
+        /// <summary>
+        /// Resolves a stored relative path and refuses anything that escapes the storage
+        /// root. Today every caller passes a path read back from the database, but that is
+        /// one careless controller away from being attacker-controlled.
+        /// </summary>
+        private string ResolveWithinRoot(string relativePath)
+        {
+            var root = GetStorageRoot();
+            var full = Path.GetFullPath(Path.Combine(root, relativePath));
+            var rootPrefix = Path.GetFullPath(root) + Path.DirectorySeparatorChar;
+
+            if (!full.StartsWith(rootPrefix, StringComparison.Ordinal))
+                throw new UnauthorizedAccessException($"Path escapes storage root: {relativePath}");
+
+            return full;
         }
     }
 }

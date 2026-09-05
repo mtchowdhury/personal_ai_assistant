@@ -37,6 +37,8 @@ builder.Host.UseSerilog((context, services, configuration) => configuration
 // Bind HTTPS on 47230 unless the host already supplied URLs (ASPNETCORE_URLS / --urls).
 // Port 5000 is typically used by macOS ControlCenter, so we avoid it. 47230 is deliberately
 // uncommon to avoid colliding with other local repos' dev APIs (e.g. the old 7230 clashed).
+// In a container ASPNETCORE_URLS is always set, so this dev-only branch is skipped and
+// Kestrel serves plain HTTP behind the reverse proxy that terminates TLS.
 if (string.IsNullOrEmpty(builder.Configuration["ASPNETCORE_URLS"]) &&
     string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
 {
@@ -214,7 +216,13 @@ app.UseSerilogRequestLogging(options =>
 });
 
 app.UseCors("AllowAll");
-app.UseHttpsRedirection();
+
+// Only redirect when this process terminates TLS itself. Behind the reverse proxy
+// Kestrel listens on HTTP alone and redirecting would break every request.
+if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable("ASPNETCORE_URLS")))
+{
+    app.UseHttpsRedirection();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
