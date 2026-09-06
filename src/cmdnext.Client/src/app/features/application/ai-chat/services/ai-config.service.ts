@@ -26,6 +26,46 @@ export interface AddProviderRequest {
   endpoint?: string;
 }
 
+export interface UpdateProviderRequest {
+  /** Blank leaves the stored key untouched. */
+  apiKey?: string;
+  endpoint?: string;
+  isActive?: boolean;
+}
+
+export interface AiUsageByModel {
+  provider: string;
+  model: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+export interface AiUsageDaily {
+  date: string;
+  requests: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+}
+
+export interface AiUsageSummary {
+  days: number;
+  since: string;
+  requests: number;
+  failedRequests: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  averageDurationMs: number;
+  allTimeRequests: number;
+  allTimeTotalTokens: number;
+  lastUsedAt?: string;
+  byModel: AiUsageByModel[];
+  daily: AiUsageDaily[];
+}
+
 export interface UpdateSettingsRequest {
   defaultProvider?: string;
   defaultModel?: string;
@@ -47,6 +87,19 @@ export class AiConfigService {
 
   addProvider(request: AddProviderRequest): Observable<AiProvider> {
     return this.http.post<AiProvider>(`${this.baseUrl}/providers`, request);
+  }
+
+  updateProvider(id: string, request: UpdateProviderRequest): Observable<AiProvider> {
+    return this.http.put<AiProvider>(`${this.baseUrl}/providers/${id}`, request);
+  }
+
+  deleteProvider(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.baseUrl}/providers/${id}`);
+  }
+
+  // Usage
+  getUsage(days = 30): Observable<AiUsageSummary> {
+    return this.http.get<AiUsageSummary>(`${this.baseUrl}/usage`, { params: { days } });
   }
 
   // Settings

@@ -452,10 +452,12 @@ export class AiChatComponent implements OnInit {
 
   openAiConfig(): void {
     this.dialog.open(AiConfigComponent, {
-      width: '700px',
-      height: '70vh',
-      maxHeight: '80vh',
-      panelClass: 'ai-config-dialog-panel'
+      width: '780px',
+      maxWidth: '95vw',
+      height: '76vh',
+      maxHeight: '88vh',
+      panelClass: 'ai-config-dialog-panel',
+      autoFocus: false
     });
   }
 }

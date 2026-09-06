@@ -382,3 +382,18 @@ input, textarea, select {
     }
   }
 }
+
+/* AI configuration dialog: the component paints its own header/footer, so drop
+   the default MDC surface padding and let it fill the panel. */
+.ai-config-dialog-panel {
+  .mat-mdc-dialog-surface {
+    padding: 0;
+    overflow: hidden;
+    border-radius: 12px;
+  }
+
+  .mat-mdc-dialog-container .mdc-dialog__surface {
+    display: flex;
+    flex-direction: column;
+  }
+}

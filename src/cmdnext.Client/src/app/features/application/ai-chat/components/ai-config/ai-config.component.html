@@ -1,166 +1,392 @@
-<div class="ai-config-dialog">
-  <h2 mat-dialog-title class="dialog-title">
-    <span>AI Configuration</span>
-    <button mat-icon-button (click)="close()" class="close-button">
+<div class="ai-config">
+  <header class="dialog-header">
+    <div class="title-block">
+      <mat-icon class="title-icon">tune</mat-icon>
+      <div>
+        <h2>AI Configuration</h2>
+        <p class="subtitle">Manage provider keys, defaults, and token usage</p>
+      </div>
+    </div>
+    <button mat-icon-button (click)="close()" aria-label="Close" class="close-button">
       <mat-icon>close</mat-icon>
     </button>
-  </h2>
+  </header>
 
-  <mat-divider></mat-divider>
-
-  <mat-dialog-content [class.loading-overlay-active]="isLoading()">
-    <!-- Providers Section -->
-    <section class="config-section">
-      <h3>AI Providers</h3>
-      <p class="section-description">Add your API keys for different AI providers</p>
-
-      <!-- Add Provider Form -->
-      <form [formGroup]="addProviderForm" class="add-provider-form">
-        <div class="form-row">
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Provider</mat-label>
-            <mat-select formControlName="provider">
-              @for (provider of availableProviders; track provider.name) {
-                <mat-option [value]="provider.name">{{ provider.displayName }}</mat-option>
-              }
-            </mat-select>
-            <mat-error *ngIf="addProviderControls['provider'].hasError('required')">
-              Provider is required
-            </mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>API Key</mat-label>
-            <input matInput type="password" formControlName="apiKey" placeholder="Enter your API key">
-            <mat-error *ngIf="addProviderControls['apiKey'].hasError('required')">
-              API Key is required
-            </mat-error>
-            <mat-error *ngIf="addProviderControls['apiKey'].hasError('minlength')">
-              API Key must be at least 10 characters
-            </mat-error>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="form-field">
-            <mat-label>Endpoint (optional)</mat-label>
-            <input matInput formControlName="endpoint" placeholder="https://api.mistral.ai/v1">
-          </mat-form-field>
-
-          <button mat-raised-button color="primary" (click)="addProvider()" [disabled]="addProviderFormDisabled">
-            <mat-icon>add</mat-icon>
-            Add Provider
-          </button>
-        </div>
-      </form>
-
-      <!-- Provider List -->
-      <div class="provider-list" *ngIf="providers().length > 0; else noProviders">
-        <h4>Your Providers</h4>
-        <mat-list>
-          @for (provider of providers(); track provider.id) {
-            <mat-list-item>
-              <mat-icon matListItemIcon color="primary">smart_toy</mat-icon>
-              <span matListItemTitle>{{ getProviderDisplayName(provider.provider) }}</span>
-              <span matListItemLine *ngIf="provider.keyLastFour">Key: ****{{ provider.keyLastFour }}</span>
-              <span matListItemLine *ngIf="provider.endpoint">{{ provider.endpoint }}</span>
-              <button mat-icon-button matListItemMeta (click)="setDefaultProvider(provider.id)">
-                <mat-icon color="accent">star</mat-icon>
-              </button>
-            </mat-list-item>
-          }
-        </mat-list>
+  @if (isLoading()) {
+    <div class="state-panel">
+      <mat-progress-spinner diameter="36" mode="indeterminate"></mat-progress-spinner>
+      <p>Loading your configuration…</p>
+    </div>
+  } @else if (error()) {
+    <div class="state-panel error">
+      <mat-icon>error_outline</mat-icon>
+      <p>{{ error() }}</p>
+      <button mat-stroked-button (click)="loadData()">Retry</button>
+    </div>
+  } @else {
+    @if (!hasCredentialForDefault()) {
+      <div class="banner warn">
+        <mat-icon>warning_amber</mat-icon>
+        <span>
+          Your default provider is <strong>{{ getProviderDisplayName(settings()?.defaultProvider || '') }}</strong>,
+          but no active key is configured for it. Chat will fail until you add one.
+        </span>
       </div>
+    }
 
-      <ng-template #noProviders>
-        <p class="no-items">No providers configured yet</p>
-      </ng-template>
-    </section>
+    <mat-tab-group class="config-tabs" animationDuration="150ms" mat-stretch-tabs="false">
 
-    <mat-divider></mat-divider>
+      <!-- ───────────────────────── Providers ───────────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">key</mat-icon>
+          Providers
+          @if (providers().length) {
+            <span class="tab-badge">{{ providers().length }}</span>
+          }
+        </ng-template>
 
-    <!-- Settings Section -->
-    <section class="config-section">
-      <h3>AI Settings</h3>
-      <p class="section-description">Configure default AI behavior</p>
+        <div class="tab-body">
+          @if (providers().length === 0 && !showAddForm()) {
+            <div class="empty-state">
+              <mat-icon>vpn_key_off</mat-icon>
+              <p>No API keys configured yet.</p>
+              <button mat-flat-button color="primary" (click)="toggleAddForm()">
+                <mat-icon>add</mat-icon> Add your first key
+              </button>
+            </div>
+          }
 
-      <form [formGroup]="settingsForm" class="settings-grid" *ngIf="settings(); else loadingSettings">
-        <mat-form-field appearance="outline" class="form-field full-width">
-          <mat-label>Default Provider</mat-label>
-          <mat-select formControlName="defaultProvider" (selectionChange)="selectProviderForModel($event.value)">
-            @for (provider of availableProviders; track provider.name) {
-              <mat-option [value]="provider.name">{{ provider.displayName }}</mat-option>
-            }
-          </mat-select>
-          <mat-error *ngIf="settingsControls['defaultProvider'].hasError('required')">
-            Default Provider is required
-          </mat-error>
-        </mat-form-field>
+          @for (provider of providers(); track provider.id) {
+            <div class="provider-card" [class.inactive]="!provider.isActive" [class.editing]="editingId() === provider.id">
+              <div class="provider-summary">
+                <div class="provider-avatar" [class.anthropic]="provider.provider === 'anthropic'">
+                  <mat-icon>{{ providerIcon(provider.provider) }}</mat-icon>
+                </div>
 
-        <mat-form-field appearance="outline" class="form-field full-width">
-          <mat-label>Default Model</mat-label>
-          <mat-select formControlName="defaultModel">
-            @for (model of availableModels(); track model.name) {
-              <mat-option [value]="model.name">{{ model.displayName }}</mat-option>
-            }
-          </mat-select>
-          <mat-error *ngIf="settingsControls['defaultModel'].hasError('required')">
-            Default Model is required
-          </mat-error>
-        </mat-form-field>
+                <div class="provider-meta">
+                  <div class="provider-name">
+                    {{ getProviderDisplayName(provider.provider) }}
+                    @if (!provider.isActive) {
+                      <span class="chip muted">Disabled</span>
+                    }
+                    @if (settings()?.defaultProvider === provider.provider && provider.isActive) {
+                      <span class="chip primary">Default</span>
+                    }
+                  </div>
+                  <div class="provider-sub">
+                    <span class="key-mask">
+                      <mat-icon class="inline-icon">password</mat-icon>
+                      ••••&nbsp;{{ provider.keyLastFour || '????' }}
+                    </span>
+                    @if (provider.endpoint) {
+                      <span class="endpoint" [matTooltip]="provider.endpoint">
+                        <mat-icon class="inline-icon">link</mat-icon>
+                        {{ provider.endpoint }}
+                      </span>
+                    }
+                  </div>
+                </div>
 
-        <mat-form-field appearance="outline" class="form-field">
-          <mat-label>Temperature</mat-label>
-          <input matInput type="number" formControlName="temperature" step="0.1" min="0" max="1">
-          <mat-hint>Creativity (0.0 - 1.0)</mat-hint>
-          <mat-error *ngIf="settingsControls['temperature'].hasError('required')">
-            Temperature is required
-          </mat-error>
-          <mat-error *ngIf="settingsControls['temperature'].hasError('min') || settingsControls['temperature'].hasError('max')">
-            Temperature must be between 0 and 1
-          </mat-error>
-        </mat-form-field>
+                <div class="provider-actions">
+                  @if (editingId() === provider.id) {
+                    <button mat-icon-button (click)="cancelEdit()" matTooltip="Cancel">
+                      <mat-icon>close</mat-icon>
+                    </button>
+                  } @else {
+                    <button mat-icon-button (click)="startEdit(provider)" matTooltip="Edit key or endpoint">
+                      <mat-icon>edit</mat-icon>
+                    </button>
+                    <button mat-icon-button class="danger" (click)="deleteProvider(provider)" matTooltip="Remove">
+                      <mat-icon>delete_outline</mat-icon>
+                    </button>
+                  }
+                </div>
+              </div>
 
-        <mat-form-field appearance="outline" class="form-field">
-          <mat-label>Max Tokens</mat-label>
-          <input matInput type="number" formControlName="maxOutputTokens" min="256" max="32768">
-          <mat-error *ngIf="settingsControls['maxOutputTokens'].hasError('required')">
-            Max Tokens is required
-          </mat-error>
-          <mat-error *ngIf="settingsControls['maxOutputTokens'].hasError('min') || settingsControls['maxOutputTokens'].hasError('max')">
-            Max Tokens must be between 256 and 32768
-          </mat-error>
-        </mat-form-field>
+              @if (editingId() === provider.id) {
+                <form [formGroup]="editProviderForm" class="edit-form" (ngSubmit)="saveEdit(provider)">
+                  <mat-form-field appearance="outline">
+                    <mat-label>New API key</mat-label>
+                    <input matInput type="password" formControlName="apiKey"
+                           placeholder="Leave blank to keep the current key" autocomplete="off">
+                    <mat-icon matSuffix>vpn_key</mat-icon>
+                    <mat-hint>Only fill this in to replace the stored key.</mat-hint>
+                    @if (editProviderControls['apiKey'].hasError('minlength')) {
+                      <mat-error>Key must be at least 10 characters.</mat-error>
+                    }
+                  </mat-form-field>
 
-        <div class="toggle-field">
-          <label>Chat Enabled</label>
-          <mat-slide-toggle formControlName="isChatEnabled"></mat-slide-toggle>
+                  <mat-form-field appearance="outline">
+                    <mat-label>Endpoint (optional)</mat-label>
+                    <input matInput formControlName="endpoint" placeholder="https://api.mistral.ai/v1">
+                    <mat-icon matSuffix>link</mat-icon>
+                  </mat-form-field>
+
+                  <div class="edit-footer">
+                    <mat-slide-toggle formControlName="isActive">Active</mat-slide-toggle>
+                    <span class="spacer"></span>
+                    <button mat-button type="button" (click)="cancelEdit()">Cancel</button>
+                    <button mat-flat-button color="primary" type="submit" [disabled]="isSaving()">
+                      Save changes
+                    </button>
+                  </div>
+                </form>
+              }
+            </div>
+          }
+
+          @if (showAddForm()) {
+            <form [formGroup]="addProviderForm" class="add-card" (ngSubmit)="addProvider()">
+              <h4>Add a provider key</h4>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Provider</mat-label>
+                <mat-select formControlName="provider">
+                  @for (p of availableProviders; track p.name) {
+                    <mat-option [value]="p.name">{{ p.displayName }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>API key</mat-label>
+                <input matInput type="password" formControlName="apiKey"
+                       placeholder="Paste your API key" autocomplete="off">
+                <mat-icon matSuffix>vpn_key</mat-icon>
+                @if (addProviderControls['apiKey'].hasError('required') && addProviderControls['apiKey'].touched) {
+                  <mat-error>An API key is required.</mat-error>
+                }
+                @if (addProviderControls['apiKey'].hasError('minlength')) {
+                  <mat-error>Key must be at least 10 characters.</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Endpoint (optional)</mat-label>
+                <input matInput formControlName="endpoint" placeholder="Defaults to the provider's standard URL">
+                <mat-icon matSuffix>link</mat-icon>
+              </mat-form-field>
+
+              <p class="hint-note">
+                <mat-icon class="inline-icon">info</mat-icon>
+                Adding a key for a provider you already have replaces the existing one.
+              </p>
+
+              <div class="edit-footer">
+                <span class="spacer"></span>
+                <button mat-button type="button" (click)="toggleAddForm()">Cancel</button>
+                <button mat-flat-button color="primary" type="submit"
+                        [disabled]="addProviderForm.invalid || isSaving()">
+                  Save key
+                </button>
+              </div>
+            </form>
+          } @else if (providers().length > 0) {
+            <button mat-stroked-button class="add-trigger" (click)="toggleAddForm()">
+              <mat-icon>add</mat-icon> Add another provider
+            </button>
+          }
         </div>
-      </form>
+      </mat-tab>
 
-      <ng-template #loadingSettings>
-        <div class="settings-loading">
-          <mat-progress-spinner diameter="32" color="primary" mode="indeterminate"></mat-progress-spinner>
+      <!-- ───────────────────────── Settings ───────────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">settings</mat-icon>
+          Defaults
+        </ng-template>
+
+        <div class="tab-body">
+          <form [formGroup]="settingsForm" class="settings-form">
+            <div class="field-grid">
+              <mat-form-field appearance="outline">
+                <mat-label>Default provider</mat-label>
+                <mat-select formControlName="defaultProvider"
+                            (selectionChange)="selectProviderForModel($event.value)">
+                  @for (p of availableProviders; track p.name) {
+                    <mat-option [value]="p.name">{{ p.displayName }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Default model</mat-label>
+                <mat-select formControlName="defaultModel">
+                  @for (m of availableModels(); track m.name) {
+                    <mat-option [value]="m.name">{{ m.displayName }}</mat-option>
+                  }
+                </mat-select>
+                @if (settingsControls['defaultModel'].hasError('required') && settingsControls['defaultModel'].touched) {
+                  <mat-error>Pick a model.</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Temperature</mat-label>
+                <input matInput type="number" formControlName="temperature" step="0.1" min="0" max="1">
+                <mat-hint>0 = focused, 1 = creative</mat-hint>
+                @if (settingsControls['temperature'].invalid && settingsControls['temperature'].touched) {
+                  <mat-error>Must be between 0 and 1.</mat-error>
+                }
+              </mat-form-field>
+
+              <mat-form-field appearance="outline">
+                <mat-label>Max output tokens</mat-label>
+                <input matInput type="number" formControlName="maxOutputTokens" min="256" max="32768">
+                <mat-hint>Per reply, 256–32768</mat-hint>
+                @if (settingsControls['maxOutputTokens'].invalid && settingsControls['maxOutputTokens'].touched) {
+                  <mat-error>Must be between 256 and 32768.</mat-error>
+                }
+              </mat-form-field>
+            </div>
+
+            <div class="toggle-row">
+              <div>
+                <div class="toggle-label">AI chat enabled</div>
+                <div class="toggle-hint">Turn off to disable all assistant requests for your account.</div>
+              </div>
+              <mat-slide-toggle formControlName="isChatEnabled"></mat-slide-toggle>
+            </div>
+          </form>
         </div>
-      </ng-template>
-    </section>
-  </mat-dialog-content>
+      </mat-tab>
 
-  <mat-divider></mat-divider>
+      <!-- ───────────────────────── Usage ───────────────────────── -->
+      <mat-tab>
+        <ng-template mat-tab-label>
+          <mat-icon class="tab-icon">insights</mat-icon>
+          Usage
+        </ng-template>
 
-  <mat-dialog-actions align="end">
-    <button mat-button type="button" (click)="close()">Cancel</button>
-    <button mat-raised-button color="primary" (click)="saveSettings()" [disabled]="settingsFormDisabled">
-      Save Settings
-    </button>
-  </mat-dialog-actions>
-</div>
+        <div class="tab-body">
+          <div class="usage-toolbar">
+            <mat-button-toggle-group [value]="usageDays()" (change)="reloadUsage($event.value)" hideSingleSelectionIndicator>
+              <mat-button-toggle [value]="7">7 days</mat-button-toggle>
+              <mat-button-toggle [value]="30">30 days</mat-button-toggle>
+              <mat-button-toggle [value]="90">90 days</mat-button-toggle>
+            </mat-button-toggle-group>
+            @if (isUsageLoading()) {
+              <mat-progress-spinner diameter="20" mode="indeterminate"></mat-progress-spinner>
+            }
+          </div>
 
-<!-- Loading Overlay -->
-<div class="loading-overlay" *ngIf="isLoading()">
-  <mat-progress-spinner diameter="40" color="primary" mode="indeterminate"></mat-progress-spinner>
-</div>
+          @if (usage(); as u) {
+            <div class="stat-grid">
+              <div class="stat-card accent">
+                <div class="stat-label">Total tokens</div>
+                <div class="stat-value">{{ formatTokens(u.totalTokens) }}</div>
+                <div class="stat-foot">{{ u.totalTokens | number }} in {{ u.days }} days</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Input</div>
+                <div class="stat-value">{{ formatTokens(u.inputTokens) }}</div>
+                <div class="stat-foot">prompt + context</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Output</div>
+                <div class="stat-value">{{ formatTokens(u.outputTokens) }}</div>
+                <div class="stat-foot">generated</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-label">Requests</div>
+                <div class="stat-value">{{ u.requests | number }}</div>
+                <div class="stat-foot">
+                  @if (u.failedRequests > 0) {
+                    <span class="failed">{{ u.failedRequests }} failed</span>
+                  } @else {
+                    all succeeded
+                  }
+                </div>
+              </div>
+            </div>
 
-<!-- Error Message -->
-<div class="error-message" *ngIf="error()">
-  <mat-icon color="warn">error_outline</mat-icon>
-  <span>{{ error() }}</span>
+            @if (u.requests === 0) {
+              <div class="empty-state small">
+                <mat-icon>query_stats</mat-icon>
+                <p>No AI usage recorded in this period.</p>
+              </div>
+            } @else {
+              <section class="usage-section">
+                <div class="section-head">
+                  <h4>Daily tokens</h4>
+                  <span class="muted-text">peak {{ formatTokens(maxDailyTokens()) }}</span>
+                </div>
+                <div class="chart">
+                  @for (d of u.daily; track d.date) {
+                    <div class="bar-slot"
+                         [matTooltip]="(d.date | date:'MMM d') + ' · ' + (d.totalTokens | number) + ' tokens · ' + d.requests + ' req'">
+                      <div class="bar" [style.height.%]="barHeight(d.totalTokens)"
+                           [class.zero]="d.totalTokens === 0"></div>
+                    </div>
+                  }
+                </div>
+                <div class="chart-axis">
+                  <span>{{ u.since | date:'MMM d' }}</span>
+                  <span>today</span>
+                </div>
+              </section>
+
+              <section class="usage-section">
+                <div class="section-head"><h4>By model</h4></div>
+                <div class="model-list">
+                  @for (m of modelShare(); track m.provider + m.model) {
+                    <div class="model-row">
+                      <div class="model-head">
+                        <span class="model-name">
+                          <mat-icon class="inline-icon">{{ providerIcon(m.provider) }}</mat-icon>
+                          {{ getModelDisplayName(m.model) }}
+                        </span>
+                        <span class="model-tokens">{{ formatTokens(m.totalTokens) }}</span>
+                      </div>
+                      <div class="share-track">
+                        <div class="share-fill" [style.width.%]="m.percent"></div>
+                      </div>
+                      <div class="model-foot">
+                        <span>{{ m.requests | number }} requests</span>
+                        <span>{{ formatTokens(m.inputTokens) }} in · {{ formatTokens(m.outputTokens) }} out</span>
+                        <span>{{ m.percent }}%</span>
+                      </div>
+                    </div>
+                  }
+                </div>
+              </section>
+            }
+
+            <div class="usage-footer">
+              <span>
+                <mat-icon class="inline-icon">history</mat-icon>
+                All time: {{ formatTokens(u.allTimeTotalTokens) }} tokens over {{ u.allTimeRequests | number }} requests
+              </span>
+              @if (u.averageDurationMs > 0) {
+                <span>
+                  <mat-icon class="inline-icon">timer</mat-icon>
+                  Avg {{ u.averageDurationMs | number:'1.0-0' }} ms
+                </span>
+              }
+              @if (u.lastUsedAt) {
+                <span>
+                  <mat-icon class="inline-icon">schedule</mat-icon>
+                  Last used {{ u.lastUsedAt | date:'MMM d, HH:mm' }}
+                </span>
+              }
+            </div>
+          }
+        </div>
+      </mat-tab>
+    </mat-tab-group>
+
+    <footer class="dialog-footer">
+      <span class="footer-note">Keys are encrypted at rest and never leave your server.</span>
+      <span class="spacer"></span>
+      <button mat-button (click)="close()">Close</button>
+      <button mat-flat-button color="primary" (click)="saveSettings()" [disabled]="settingsFormDisabled">
+        @if (isSaving()) {
+          <mat-progress-spinner diameter="18" mode="indeterminate"></mat-progress-spinner>
+        } @else {
+          Save settings
+        }
+      </button>
+    </footer>
+  }
 </div>
