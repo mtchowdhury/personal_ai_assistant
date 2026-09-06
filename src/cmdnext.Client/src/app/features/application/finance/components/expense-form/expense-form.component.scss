@@ -66,3 +66,30 @@
     &.primary { background: #2f6fed; color: #fff; &:disabled { opacity: 0.6; cursor: not-allowed; } }
   }
 }
+
+/* Flags a total override that disagrees with the item sum — previously the two
+   could silently diverge, which is easy to miss when editing many rows. */
+.computed {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+
+  .mismatch {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+    color: #b26a00;
+  }
+
+  .link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: #1565c0;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+}

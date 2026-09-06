@@ -68,7 +68,15 @@
           <input type="number" formControlName="totalAmount" step="0.01" min="0"
                  [placeholder]="(computedTotal | number:'1.2-2') || '0.00'">
         </label>
-        <div class="computed">Items sum: <b>{{ computedTotal | number:'1.2-2' }} {{ form.get('currency')?.value }}</b></div>
+        <div class="computed">
+          <span>Items sum: <b>{{ computedTotal | number:'1.2-2' }} {{ form.get('currency')?.value }}</b></span>
+          @if (totalMismatch) {
+            <span class="mismatch">
+              Total differs by {{ totalDifference > 0 ? '+' : '' }}{{ totalDifference | number:'1.2-2' }}
+              <button type="button" class="link-btn" (click)="useItemSum()">use item sum</button>
+            </span>
+          }
+        </div>
       </div>
 
       <div class="actions">

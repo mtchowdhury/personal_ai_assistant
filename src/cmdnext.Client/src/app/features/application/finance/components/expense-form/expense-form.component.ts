@@ -144,17 +144,85 @@ export class ExpenseFormComponent implements OnInit {
     this.items.removeAt(index);
   }
 
+  /**
+   * Reads a numeric form value that may have been typed with a decimal comma.
+   *
+   * A `type="number"` input under a German locale hands back "0,376" / "28,09",
+   * which Number() turns into NaN and parseFloat() silently truncates to 28.
+   * Both failure modes corrupted line totals and the total override, so every
+   * read of a numeric control goes through here.
+   */
+  private toNumber(value: unknown): number {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    if (value === null || value === undefined) return 0;
+
+    const raw = String(value).trim();
+    if (!raw) return 0;
+
+    // Strip thousands separators, then normalise the decimal mark to a dot.
+    // "1.234,56" -> "1234.56";  "1,234.56" -> "1234.56";  "28,09" -> "28.09"
+    const lastComma = raw.lastIndexOf(',');
+    const lastDot = raw.lastIndexOf('.');
+    let normalised: string;
+
+    if (lastComma > -1 && lastDot > -1) {
+      normalised = lastComma > lastDot
+        ? raw.replace(/\./g, '').replace(',', '.')
+        : raw.replace(/,/g, '');
+    } else if (lastComma > -1) {
+      // A lone comma is a decimal mark, except when it groups exactly three
+      // trailing digits ("1,234"). A leading "0," is always a decimal, so a
+      // quantity like "0,376" is not mistaken for 376.
+      const groups = /^[1-9]\d{0,2}(,\d{3})+$/.test(raw);
+      normalised = groups ? raw.replace(/,/g, '') : raw.replace(',', '.');
+    } else {
+      normalised = raw;
+    }
+
+    const parsed = Number(normalised);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  /** Rounds to cents so accumulated float error never reaches the payload. */
+  private round2(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
   lineTotal(index: number): number {
     const g = this.items.at(index);
-    const q = Number(g.get('quantity')?.value) || 0;
-    const p = Number(g.get('unitPrice')?.value) || 0;
-    return q * p;
+    const q = this.toNumber(g.get('quantity')?.value);
+    const p = this.toNumber(g.get('unitPrice')?.value);
+    return this.round2(q * p);
   }
 
   get computedTotal(): number {
     let sum = 0;
     for (let i = 0; i < this.items.length; i++) sum += this.lineTotal(i);
-    return sum;
+    return this.round2(sum);
+  }
+
+  /** The override the user typed, or null when the field is blank. */
+  get totalOverride(): number | null {
+    const raw = this.form.get('totalAmount')?.value;
+    if (raw === null || raw === undefined || String(raw).trim() === '') return null;
+    return this.round2(this.toNumber(raw));
+  }
+
+  /** True when an explicit total is set and disagrees with the item sum. */
+  get totalMismatch(): boolean {
+    const override = this.totalOverride;
+    return override !== null && Math.abs(override - this.computedTotal) >= 0.01;
+  }
+
+  /** Signed gap between the typed total and the item sum. */
+  get totalDifference(): number {
+    const override = this.totalOverride;
+    return override === null ? 0 : this.round2(override - this.computedTotal);
+  }
+
+  /** Replaces the override with the current item sum. */
+  useItemSum(): void {
+    this.form.get('totalAmount')?.setValue(this.computedTotal);
   }
 
   save(): void {
@@ -169,9 +237,9 @@ export class ExpenseFormComponent implements OnInit {
       rawName: i.rawName,
       canonicalName: i.canonicalName || null,
       categoryId: v.categoryId || null,
-      quantity: Number(i.quantity),
-      unitPrice: Number(i.unitPrice),
-      lineTotal: Number(i.quantity) * Number(i.unitPrice),
+      quantity: this.toNumber(i.quantity),
+      unitPrice: this.toNumber(i.unitPrice),
+      lineTotal: this.round2(this.toNumber(i.quantity) * this.toNumber(i.unitPrice)),
       notes: i.notes || null
     }));
 
@@ -183,7 +251,7 @@ export class ExpenseFormComponent implements OnInit {
         purchasedOn: v.purchasedOn ? new Date(v.purchasedOn).toISOString() : null,
         categoryId: v.categoryId || null,
         currency: v.currency || 'EUR',
-        totalAmount: v.totalAmount ? Number(v.totalAmount) : null,
+        totalAmount: this.totalOverride,
         notes: this.showShopField ? null : (v.remarks || null),
         items
       };
@@ -204,7 +272,7 @@ export class ExpenseFormComponent implements OnInit {
         purchasedOn: v.purchasedOn ? new Date(v.purchasedOn).toISOString() : null,
         categoryId: v.categoryId || null,
         currency: v.currency || 'EUR',
-        totalAmount: v.totalAmount ? Number(v.totalAmount) : null,
+        totalAmount: this.totalOverride,
         notes: this.showShopField ? null : (v.remarks || null),
         items
       };
