@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -20,7 +20,7 @@ interface TreeNode extends Node {
   templateUrl: './space-detail.component.html',
   styleUrls: ['./space-detail.component.scss']
 })
-export class SpaceDetailComponent implements OnInit, OnDestroy {
+export class SpaceDetailComponent implements OnInit, OnDestroy, AfterViewChecked {
   spaceId = '';
   space: Space | null = null;
   isLoading = true;
@@ -36,8 +36,20 @@ export class SpaceDetailComponent implements OnInit, OnDestroy {
   entryTypes: EntryTypeSchema[] = [];
 
   // Inline "add node" form
+  @ViewChild('newNodeInput') newNodeInput?: ElementRef<HTMLInputElement>;
+  @ViewChild('entriesScroll') entriesScroll?: ElementRef<HTMLElement>;
   showAddNode = false;
   newNodeName = '';
+  /** Set when the form opens so ngAfterViewChecked focuses the input exactly once. */
+  private focusNewNodeInput = false;
+
+  /**
+   * Scroll offset of the entry list to restore once the entries have rendered, or null when
+   * nothing is pending. Opening an entry destroys this component (separate route), so the
+   * offset is parked in sessionStorage and picked up on the way back — otherwise returning
+   * from the editor snaps the user to the top of a long list.
+   */
+  private pendingScrollTop: number | null = null;
 
   // Drag & drop: entry being dragged, and the tree target currently hovered.
   // `dropTargetId` uses '' for the "All entries" (space root) target, since null means "nothing
@@ -59,6 +71,7 @@ export class SpaceDetailComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.spaceId = this.route.snapshot.paramMap.get('id') ?? '';
+    this.takeStoredScroll();
     this.load();
   }
 
@@ -112,8 +125,11 @@ export class SpaceDetailComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Alphabetic by name, so a node is findable in a long tree. localeCompare with numeric
+    // collation keeps "Class 2" before "Class 10".
+    const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
     const sortRec = (list: TreeNode[]) => {
-      list.sort((a, b) => a.sortOrder - b.sortOrder);
+      list.sort((a, b) => collator.compare(a.name, b.name));
       for (const n of list) sortRec(n.children);
     };
     sortRec(roots);
@@ -133,7 +149,63 @@ export class SpaceDetailComponent implements OnInit, OnDestroy {
 
   selectNode(nodeId: string | null): void {
     this.selectedNodeId = nodeId;
+    // Switching nodes is a deliberate context change — show the new list from the top.
+    this.pendingScrollTop = null;
+    if (this.entriesScroll) this.entriesScroll.nativeElement.scrollTop = 0;
     this.loadEntries();
+  }
+
+  /** sessionStorage key for the current space + selected node. */
+  private scrollKey(): string {
+    return `spaces:${this.spaceId}:${this.selectedNodeId ?? 'root'}:scroll`;
+  }
+
+  /** Holds the offset across an in-place reload; this component stays alive. */
+  private rememberEntriesScroll(): void {
+    const el = this.entriesScroll?.nativeElement;
+    if (el) this.pendingScrollTop = el.scrollTop;
+  }
+
+  /**
+   * Parks the offset for a reload that destroys this component — opening an entry is a
+   * separate route, so in-memory state does not survive the trip.
+   */
+  private parkEntriesScroll(): void {
+    const el = this.entriesScroll?.nativeElement;
+    if (!el) return;
+    try {
+      sessionStorage.setItem(this.scrollKey(), String(el.scrollTop));
+    } catch {
+      // Private-mode browsers can throw on write; a lost scroll position is not worth failing over.
+    }
+  }
+
+  /** Picks up an offset parked by a previous visit to this space/node. */
+  private takeStoredScroll(): void {
+    try {
+      const raw = sessionStorage.getItem(this.scrollKey());
+      if (raw === null) return;
+      sessionStorage.removeItem(this.scrollKey());
+      const value = Number(raw);
+      if (Number.isFinite(value) && value > 0) this.pendingScrollTop = value;
+    } catch {
+      // No stored position available; start at the top.
+    }
+  }
+
+  private restoreEntriesScrollIfPending(): void {
+    if (this.pendingScrollTop === null || this.entriesLoading) return;
+
+    const el = this.entriesScroll?.nativeElement;
+    if (!el) return;
+
+    // While loading, the list is hidden and the container collapses; assigning scrollTop then
+    // would be clamped to 0 and the position lost. Wait until it can actually hold the offset.
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    if (maxScroll <= 0) return;
+
+    el.scrollTop = Math.min(this.pendingScrollTop, maxScroll);
+    this.pendingScrollTop = null;
   }
 
   private loadEntries(): void {
@@ -158,6 +230,21 @@ export class SpaceDetailComponent implements OnInit, OnDestroy {
     return this.flatTree.find(n => n.id === this.selectedNodeId);
   }
 
+  toggleAddNode(): void {
+    this.showAddNode = !this.showAddNode;
+    // The input is behind *ngIf, so it cannot be focused until the view has rendered it.
+    this.focusNewNodeInput = this.showAddNode;
+    if (!this.showAddNode) this.newNodeName = '';
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.focusNewNodeInput && this.newNodeInput) {
+      this.focusNewNodeInput = false;
+      this.newNodeInput.nativeElement.focus();
+    }
+    this.restoreEntriesScrollIfPending();
+  }
+
   addNode(): void {
     const name = this.newNodeName.trim();
     if (!name) return;
@@ -177,6 +264,7 @@ export class SpaceDetailComponent implements OnInit, OnDestroy {
   }
 
   addEntry(): void {
+    this.parkEntriesScroll();
     this.router.navigate(['/spaces', this.spaceId, 'entries', 'new'], {
       queryParams: { nodeId: this.selectedNodeId ?? undefined }
     });
@@ -256,6 +344,9 @@ export class SpaceDetailComponent implements OnInit, OnDestroy {
     const entry = this.entries.find(e => e.id === entryId);
     if (entry && (entry.nodeId ?? null) === nodeId) return;
 
+    // The reload below re-renders the list; keep the user where they were dragging from.
+    this.rememberEntriesScroll();
+
     this.spacesService.moveEntry(this.spaceId, entryId, nodeId).subscribe({
       next: () => {
         this.notification.showSuccess(
@@ -304,6 +395,7 @@ export class SpaceDetailComponent implements OnInit, OnDestroy {
   }
 
   openEntry(entry: EntryListItem): void {
+    this.parkEntriesScroll();
     this.router.navigate(['/spaces', this.spaceId, 'entries', entry.id]);
   }
 

@@ -24,12 +24,13 @@
       <aside class="tree-panel" [class.drag-active]="draggingEntryId">
         <div class="tree-header">
           <span title="Drag an entry onto a node to move it there">Tree</span>
-          <button type="button" class="tree-add-btn" (click)="showAddNode = !showAddNode">+ Node</button>
+          <button type="button" class="tree-add-btn" (click)="toggleAddNode()">+ Node</button>
         </div>
 
         <div class="add-node-form" *ngIf="showAddNode">
           <input type="text" [(ngModel)]="newNodeName" placeholder="Node name"
-                 (keyup.enter)="addNode()" />
+                 #newNodeInput
+                 (keyup.enter)="addNode()" (keyup.escape)="toggleAddNode()" />
           <button type="button" (click)="addNode()">Add</button>
         </div>
 
@@ -63,15 +64,17 @@
           <p *ngIf="n.summary">{{ n.summary }}</p>
         </div>
 
-        <app-loading-spinner *ngIf="entriesLoading" label="Loading entries…"></app-loading-spinner>
+        <!-- The scroll container is never removed from the DOM: an *ngIf here would destroy it
+             on every reload, discarding the scroll position (and the ViewChild with it). -->
+        <div class="entries-scroll" #entriesScroll>
+          <app-loading-spinner *ngIf="entriesLoading" label="Loading entries…"></app-loading-spinner>
 
-        <div class="entries-scroll" *ngIf="!entriesLoading">
-          <div *ngIf="entries.length === 0" class="empty">
+          <div *ngIf="!entriesLoading && entries.length === 0" class="empty">
             No entries here yet.
             <button type="button" class="link-btn" (click)="addEntry()">Add one</button>
           </div>
 
-          <div class="entry-list">
+          <div class="entry-list" [hidden]="entriesLoading">
             <button type="button" class="entry-card" *ngFor="let e of entries" (click)="openEntry(e)"
                     draggable="true"
                     [class.dragging]="draggingEntryId === e.id"
