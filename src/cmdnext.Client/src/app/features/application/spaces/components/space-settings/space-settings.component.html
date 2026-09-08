@@ -31,14 +31,34 @@
 
     <section class="entry-types-section">
       <h2>Entry types</h2>
-      <p class="hint">Defined when this space was created; used to build the entry form.</p>
+      <p class="hint">
+        Used to build the entry form. These belong to this space only — adding one here never
+        affects your other spaces.
+      </p>
       <div class="type-list">
         <div class="type-row" *ngFor="let t of entryTypes">
-          <span class="type-label">{{ t.label }}</span>
+          <div class="type-main">
+            <span class="type-label">{{ t.label }}</span>
+            <code class="type-key">{{ t.type }}</code>
+          </div>
           <span class="type-fields" *ngIf="t.fields.length">
             {{ t.fields.length }} field(s): {{ fieldNames(t) }}
           </span>
+          <button type="button" class="link-btn danger" (click)="removeType(t)"
+                  [disabled]="isSavingTypes">Remove</button>
         </div>
+        <p class="empty-types" *ngIf="!entryTypes.length">
+          No entry types yet — add one below.
+        </p>
+      </div>
+
+      <div class="add-type-row">
+        <input type="text" [(ngModel)]="newTypeName" placeholder="New type name, e.g. recipe"
+               autocomplete="off" (keyup.enter)="addType()" />
+        <button type="button" class="btn" (click)="addType()"
+                [disabled]="!newTypeName.trim() || isSavingTypes">
+          {{ isSavingTypes ? 'Saving…' : 'Add type' }}
+        </button>
       </div>
     </section>
 
@@ -46,6 +66,30 @@
       <h2>Archive</h2>
       <p class="hint">Archived spaces are hidden from the list but not deleted. You can still reach entries via search.</p>
       <button type="button" class="btn danger" (click)="archive()">Archive this space</button>
+    </section>
+
+    <section class="danger-section">
+      <h2>Delete</h2>
+      <p class="hint">
+        Permanently deletes this space and everything in it — every node, entry, attachment file
+        and search embedding. This cannot be undone.
+      </p>
+
+      <button type="button" class="btn danger" *ngIf="!showDeleteConfirm"
+              (click)="showDeleteConfirm = true">Delete this space</button>
+
+      <div class="delete-confirm" *ngIf="showDeleteConfirm">
+        <label for="deleteConfirm">Type <strong>{{ space?.name }}</strong> to confirm</label>
+        <input id="deleteConfirm" type="text" [(ngModel)]="deleteConfirmName"
+               placeholder="Space name" autocomplete="off" />
+        <div class="form-actions">
+          <button type="button" class="btn" (click)="cancelDelete()">Cancel</button>
+          <button type="button" class="btn danger" (click)="deleteSpace()"
+                  [disabled]="!canDelete() || isDeleting">
+            {{ isDeleting ? 'Deleting…' : 'Delete permanently' }}
+          </button>
+        </div>
+      </div>
     </section>
   </main>
 </div>

@@ -397,3 +397,22 @@ input, textarea, select {
     flex-direction: column;
   }
 }
+
+/* Drag image for a space entry being moved onto a node. Rendered into document.body by
+   space-detail (a component-scoped style would not apply there), so it lives here.
+   Deliberately small: the default drag image is a full-size card that covers the node tree
+   and hides which node you are hovering. */
+.entry-drag-chip {
+  max-width: 220px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #2f6fed;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}

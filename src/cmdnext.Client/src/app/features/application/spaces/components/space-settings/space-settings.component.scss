@@ -82,6 +82,7 @@
     color: #d92d20;
     border-color: #fda29b;
     &:hover { background: #fef3f2; }
+    &:disabled { opacity: 0.5; cursor: default; background: none; }
   }
 }
 
@@ -101,12 +102,89 @@
 }
 
 .type-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   padding: 10px 12px;
   background: #fff;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   font-size: 13px;
 
-  .type-label { font-weight: 600; margin-right: 8px; }
+  .type-main {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .type-label { font-weight: 600; }
+
+  .type-key {
+    font-size: 11px;
+    color: #888;
+    background: #f0f0f0;
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
   .type-fields { color: #777; }
+
+  .link-btn {
+    // Always sits at the right edge, with or without a field summary before it.
+    margin-left: auto;
+    flex: 0 0 auto;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 13px;
+
+    &.danger { color: #d92d20; }
+    &:disabled { opacity: 0.5; cursor: default; }
+  }
+}
+
+.delete-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  background: #fef3f2;
+  border: 1px solid #fda29b;
+  border-radius: 8px;
+
+  label { font-size: 13px; color: #611f1a; }
+
+  input {
+    padding: 8px 10px;
+    border: 1px solid #fda29b;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #fff;
+  }
+
+  .form-actions { margin: 0; }
+}
+
+.empty-types {
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+}
+
+.add-type-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 8px 10px;
+    border: 1px solid #d0d0d0;
+    border-radius: 6px;
+    font-size: 14px;
+  }
+
+  .btn { flex: 0 0 auto; }
 }

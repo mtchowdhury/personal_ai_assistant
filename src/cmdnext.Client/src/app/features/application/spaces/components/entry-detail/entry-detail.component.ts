@@ -1,9 +1,9 @@
 import { AfterViewChecked, Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
-  SpacesService, Space, Entry, EntryTypeSchema, FieldSchema, Attachment
+  SpacesService, Space, Entry, EntryTypeSchema, FieldSchema, Attachment, parseEntryTypeSchema
 } from '@features/application/spaces/services/spaces.service';
 import { NotificationService } from '@core/services/notification.service';
 import { LoadingSpinnerComponent } from '@core/components/loading-spinner/loading-spinner.component';
@@ -12,7 +12,7 @@ import { ChatMarkdownPipe } from '@shared/pipes/chat-markdown.pipe';
 @Component({
   selector: 'app-entry-detail',
   standalone: true,
-  imports: [CommonModule, FormsModule, LoadingSpinnerComponent, ChatMarkdownPipe],
+  imports: [CommonModule, FormsModule, RouterLink, LoadingSpinnerComponent, ChatMarkdownPipe],
   templateUrl: './entry-detail.component.html',
   styleUrls: ['./entry-detail.component.scss']
 })
@@ -65,7 +65,7 @@ export class EntryDetailComponent implements OnInit, AfterViewChecked {
     this.spacesService.getSpace(this.spaceId).subscribe({
       next: (space) => {
         this.space = space;
-        this.entryTypes = this.parseSchema(space.schemaJson);
+        this.entryTypes = parseEntryTypeSchema(space.schemaJson);
         if (this.entryTypes.length && !this.entryTypes.some(t => t.type === this.type)) {
           this.type = this.entryTypes[0].type;
         }
@@ -102,6 +102,11 @@ export class EntryDetailComponent implements OnInit, AfterViewChecked {
 
   private applyEntry(entry: Entry): void {
     this.type = entry.type;
+    // The type may have since been removed from the space's schema. Keep it selectable so the
+    // dropdown does not render blank and silently rewrite the entry's type on the next save.
+    if (this.type && !this.entryTypes.some(t => t.type === this.type)) {
+      this.entryTypes = [...this.entryTypes, { type: this.type, label: this.type, fields: [] }];
+    }
     this.title = entry.title;
     this.body = entry.body;
     this.tagsText = entry.tags.join(', ');
@@ -146,8 +151,15 @@ export class EntryDetailComponent implements OnInit, AfterViewChecked {
   }
 
   currentTypeSchema(): EntryTypeSchema | undefined {
-    return this.entryTypes.find(t => t.type === this.type);
+    return this.entryTypes.find(t => t.type === this.normalizedType());
   }
+
+  /** Types are stored lowercase/trimmed so "Recipe" and "recipe" cannot both exist. */
+  private normalizedType(): string {
+    return this.type.trim().toLowerCase();
+  }
+
+
 
   currentFields(): FieldSchema[] {
     return this.currentTypeSchema()?.fields ?? [];
@@ -170,16 +182,26 @@ export class EntryDetailComponent implements OnInit, AfterViewChecked {
       return;
     }
 
+    const type = this.normalizedType();
+    if (!type) {
+      this.notification.showError('Give the entry a type.');
+      return;
+    }
+
     const tags = this.tagsText.split(',').map(t => t.trim()).filter(t => t.length > 0);
     const fieldsJson = JSON.stringify(this.fieldValues);
 
     this.isSaving = true;
 
+    this.persist(type, title, tags, fieldsJson);
+  }
+
+  private persist(type: string, title: string, tags: string[], fieldsJson: string): void {
     if (this.isNew) {
       const nodeId = this.route.snapshot.queryParamMap.get('nodeId');
       this.spacesService.createEntry(this.spaceId, {
         nodeId: nodeId || null,
-        type: this.type,
+        type,
         title,
         body: this.body,
         fieldsJson,
@@ -272,14 +294,6 @@ export class EntryDetailComponent implements OnInit, AfterViewChecked {
       next: () => (this.attachments = this.attachments.filter(a => a.id !== attachment.id)),
       error: () => this.notification.showError('Could not delete the attachment.')
     });
-  }
-
-  private parseSchema(json: string): EntryTypeSchema[] {
-    try {
-      return JSON.parse(json || '[]');
-    } catch {
-      return [];
-    }
   }
 
   private parseFields(json: string): Record<string, string> {

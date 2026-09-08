@@ -16,6 +16,45 @@ export interface EntryTypeSchema {
   fields: FieldSchema[];
 }
 
+/**
+ * Parses a space's `schemaJson` into entry types.
+ *
+ * Spaces created before the API was fixed to serialize the schema camelCase stored PascalCase
+ * property names (`{"Type":...,"Label":...,"Fields":[...]}`), which parsed into objects whose
+ * `type` was `undefined` — a blank Type dropdown and entry creation failing with no type.
+ * Accept either casing so those rows keep working.
+ */
+export function parseEntryTypeSchema(json: string | null | undefined): EntryTypeSchema[] {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(json || '[]');
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(raw)) return [];
+
+  return raw
+    .map((t) => {
+      const o = (t ?? {}) as Record<string, unknown>;
+      const type = String(o['type'] ?? o['Type'] ?? '');
+      const rawFields = (o['fields'] ?? o['Fields']) as unknown;
+      const fields: FieldSchema[] = Array.isArray(rawFields)
+        ? rawFields.map((f) => {
+            const fo = (f ?? {}) as Record<string, unknown>;
+            const options = (fo['options'] ?? fo['Options']) as unknown;
+            return {
+              name: String(fo['name'] ?? fo['Name'] ?? ''),
+              type: String(fo['type'] ?? fo['Type'] ?? 'text'),
+              required: Boolean(fo['required'] ?? fo['Required'] ?? false),
+              options: Array.isArray(options) ? options.map((x) => String(x)) : null
+            };
+          })
+        : [];
+      return { type, label: String(o['label'] ?? o['Label'] ?? type), fields };
+    })
+    .filter((t) => t.type.length > 0);
+}
+
 export interface SpaceTemplate {
   kind: string;
   label: string;
@@ -281,6 +320,11 @@ export class SpacesService {
 
   updateEntry(spaceId: string, entryId: string, request: UpdateEntryRequest): Observable<Entry> {
     return this.http.put<Entry>(`${this.baseUrl}/${spaceId}/entries/${entryId}`, request);
+  }
+
+  /** Moves an entry into a node (or to the space root when nodeId is null). */
+  moveEntry(spaceId: string, entryId: string, nodeId: string | null): Observable<Entry> {
+    return this.updateEntry(spaceId, entryId, { nodeId, nodeIdSet: true });
   }
 
   appendToEntry(spaceId: string, entryId: string, request: AppendToEntryRequest): Observable<Entry> {

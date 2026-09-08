@@ -21,9 +21,9 @@
     </section>
 
     <div class="detail-body">
-      <aside class="tree-panel">
+      <aside class="tree-panel" [class.drag-active]="draggingEntryId">
         <div class="tree-header">
-          <span>Tree</span>
+          <span title="Drag an entry onto a node to move it there">Tree</span>
           <button type="button" class="tree-add-btn" (click)="showAddNode = !showAddNode">+ Node</button>
         </div>
 
@@ -35,14 +35,22 @@
 
         <div class="tree-list">
           <button type="button" class="tree-item" [class.active]="selectedNodeId === null"
-                  (click)="selectNode(null)">
+                  [class.drop-target]="dropTargetId === ''"
+                  (click)="selectNode(null)"
+                  (dragover)="onNodeDragOver(null, $event)"
+                  (dragleave)="onNodeDragLeave(null)"
+                  (drop)="onNodeDrop(null, $event)">
             <span class="tree-label">All entries</span>
             <span class="tree-count" *ngIf="!entriesLoading">{{ entries.length }}</span>
           </button>
           <button type="button" class="tree-item" *ngFor="let n of flatTree"
                   [class.active]="selectedNodeId === n.id"
+                  [class.drop-target]="dropTargetId === n.id"
                   [style.padding-left.px]="12 + n.depth * 16"
-                  (click)="selectNode(n.id)">
+                  (click)="selectNode(n.id)"
+                  (dragover)="onNodeDragOver(n.id, $event)"
+                  (dragleave)="onNodeDragLeave(n.id)"
+                  (drop)="onNodeDrop(n.id, $event)">
             <span class="tree-label">{{ n.name }}</span>
             <span class="tree-count" *ngIf="n.entryCount">{{ n.entryCount }}</span>
           </button>
@@ -57,23 +65,31 @@
 
         <app-loading-spinner *ngIf="entriesLoading" label="Loading entries…"></app-loading-spinner>
 
-        <div *ngIf="!entriesLoading && entries.length === 0" class="empty">
-          No entries here yet.
-          <button type="button" class="link-btn" (click)="addEntry()">Add one</button>
-        </div>
+        <div class="entries-scroll" *ngIf="!entriesLoading">
+          <div *ngIf="entries.length === 0" class="empty">
+            No entries here yet.
+            <button type="button" class="link-btn" (click)="addEntry()">Add one</button>
+          </div>
 
-        <div class="entry-list" *ngIf="!entriesLoading">
-          <button type="button" class="entry-card" *ngFor="let e of entries" (click)="openEntry(e)">
-            <div class="entry-top">
-              <span class="entry-type">{{ e.type }}</span>
-              <span class="entry-date" *ngIf="e.occurredOn">{{ e.occurredOn | date:'mediumDate' }}</span>
-            </div>
-            <span class="entry-title">{{ e.title }}</span>
-            <span class="entry-excerpt">{{ e.excerpt }}</span>
-            <div class="entry-tags" *ngIf="e.tags.length">
-              <span class="tag" *ngFor="let t of e.tags">#{{ t }}</span>
-            </div>
-          </button>
+          <div class="entry-list">
+            <button type="button" class="entry-card" *ngFor="let e of entries" (click)="openEntry(e)"
+                    draggable="true"
+                    [class.dragging]="draggingEntryId === e.id"
+                    (dragstart)="onEntryDragStart(e, $event)"
+                    (dragend)="onEntryDragEnd()">
+              <div class="entry-top">
+                <span class="entry-type">{{ e.type }}</span>
+                <span class="node-chip" *ngIf="entryNodeLabel(e) as nodeLabel"
+                      [title]="'In ' + nodeLabel">📁 {{ nodeLabel }}</span>
+                <span class="entry-date" *ngIf="e.occurredOn">{{ e.occurredOn | date:'mediumDate' }}</span>
+              </div>
+              <span class="entry-title">{{ e.title }}</span>
+              <span class="entry-excerpt">{{ e.excerpt }}</span>
+              <div class="entry-tags" *ngIf="e.tags.length">
+                <span class="tag" *ngFor="let t of e.tags">#{{ t }}</span>
+              </div>
+            </button>
+          </div>
         </div>
       </section>
     </div>

@@ -1,10 +1,17 @@
 .detail-page {
-  min-height: 100vh;
+  // Pin to the viewport and let the entry list be the only thing that scrolls, so the header
+  // and the node tree stay put — otherwise a long entry list scrolls the drop targets offscreen
+  // and drag-to-move becomes unusable.
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: #f5f5f5;
   color: #1a1a1a;
 }
 
 .detail-header {
+  flex: 0 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -58,9 +65,14 @@
 }
 
 .detail-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
 }
 
 .state-strip {
@@ -72,6 +84,7 @@
   border: 1px solid #e0e0e0;
   border-radius: 8px;
   margin-bottom: 16px;
+  flex: 0 0 auto;
   font-size: 13px;
   color: #555;
 
@@ -79,19 +92,37 @@
 }
 
 .detail-body {
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
   grid-template-columns: 240px 1fr;
   gap: 20px;
-  align-items: start;
+  // Stretch (not `start`) so both columns get the row's full height to scroll within;
+  // the tree panel still only grows as tall as its own content.
+  align-items: stretch;
 }
 
 .tree-panel {
+  // Sits at the top of its stretched grid cell and never grows past it; the list inside
+  // scrolls when the tree itself is long.
+  align-self: start;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
   background: #fff;
   border: 1px solid #e0e0e0;
   border-radius: 10px;
   overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  // While an entry is being dragged, lift the whole tree so it reads as the drop zone.
+  &.drag-active {
+    border-color: #2f6fed;
+    box-shadow: 0 0 0 3px rgba(47, 111, 237, 0.12);
+  }
 
   .tree-header {
+    flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -115,6 +146,7 @@
   }
 
   .add-node-form {
+    flex: 0 0 auto;
     display: flex;
     gap: 6px;
     padding: 8px;
@@ -140,13 +172,15 @@
   }
 
   .tree-list {
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
-    max-height: 60vh;
     overflow-y: auto;
   }
 
   .tree-item {
+    flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -159,6 +193,31 @@
     color: #333;
 
     &:hover { background: #f5f7ff; }
+
+    // As with the entry cards: suppress the global mousedown outline, which would also
+    // compete with the .drop-target ring during a drag.
+    &:focus { outline: none; }
+    &:focus-visible {
+      outline: 2px solid #0078d4;
+      outline-offset: -2px;
+    }
+
+    transition: background 0.12s ease, transform 0.12s ease;
+
+    // Highlighted while an entry is dragged over it. Nudged right and slightly scaled so the
+    // active target is obvious even with the cursor and drag chip nearby.
+    &.drop-target {
+      background: #dbe7ff;
+      outline: 2px dashed #2f6fed;
+      outline-offset: -2px;
+      transform: translateX(2px);
+      font-weight: 600;
+
+      .tree-label::after {
+        content: " ⤵";
+        color: #2f6fed;
+      }
+    }
     &.active { background: #eef2ff; color: #2f6fed; font-weight: 600; }
 
     .tree-count {
@@ -172,10 +231,23 @@
 }
 
 .entries-panel {
-  min-height: 200px;
+  min-height: 0;
+  max-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+// The one scrolling region on the page.
+.entries-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  // Room for the last card's shadow/border against the scroll edge.
+  padding-bottom: 4px;
 }
 
 .node-summary {
+  flex: 0 0 auto;
   margin-bottom: 12px;
 
   h2 { margin: 0 0 4px; font-size: 18px; }
@@ -218,13 +290,51 @@
 
   &:hover { border-color: #2f6fed; }
 
+  // The global `:focus` rule outlines the card on plain mousedown, which then lingers after a
+  // click or a drag-and-drop. Keep the ring for keyboard users only.
+  &:focus { outline: none; }
+  &:focus-visible {
+    outline: 2px solid #0078d4;
+    outline-offset: 2px;
+  }
+
+  // The card left behind shrinks and fades so the list visibly registers the drag.
+  transition: opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+
+  &.dragging {
+    opacity: 0.35;
+    transform: scale(0.97);
+    border-style: dashed;
+  }
+
   .entry-top {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
     font-size: 11px;
     color: #999;
     text-transform: uppercase;
     letter-spacing: 0.03em;
+
+    // Pushes the date to the far right regardless of whether a node chip is present.
+    .entry-date { margin-left: auto; flex: 0 0 auto; }
+  }
+
+  // Which node the entry is filed under — the list is otherwise indistinguishable when
+  // "All entries" is selected.
+  .node-chip {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: #f0f3f9;
+    color: #5b6472;
+    text-transform: none;
+    letter-spacing: normal;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .entry-title { font-size: 15px; font-weight: 600; }
@@ -246,5 +356,13 @@
 }
 
 @media (max-width: 720px) {
-  .detail-body { grid-template-columns: 1fr; }
+  // Single column: stacking a pinned tree above a scrolling list leaves too little room for
+  // either, so fall back to scrolling the page as a whole.
+  .detail-page { height: auto; min-height: 100vh; overflow: visible; }
+  .detail-main { display: block; }
+  .detail-body { grid-template-columns: 1fr; align-items: start; }
+  .tree-panel { max-height: none; }
+  .tree-panel .tree-list { max-height: 50vh; }
+  .entries-panel { max-height: none; display: block; }
+  .entries-scroll { overflow-y: visible; }
 }

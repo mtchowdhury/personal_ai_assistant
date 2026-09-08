@@ -81,7 +81,7 @@ namespace CmdNext.Service.Spaces
             {
                 Kind = "people",
                 Label = "People",
-                Description = "A profile per person — events over time and how they behaved.",
+                Description = "A profile per person.",
                 SuggestedNodeKind = "person",
                 EntryTypes = new List<EntryTypeSchema>
                 {

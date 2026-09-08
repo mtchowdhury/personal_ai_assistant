@@ -30,6 +30,19 @@ namespace CmdNext.Service.Services
             _logger = logger;
         }
 
+        /// <summary>
+        /// Schema/field JSON is consumed directly by the clients (and the AI tools), so it is
+        /// serialized camelCase to match the casing every other DTO goes over the wire in.
+        /// Deserialization is case-insensitive so rows written before this was fixed — which
+        /// stored PascalCase property names — still read back correctly.
+        /// </summary>
+        private static readonly JsonSerializerOptions SchemaJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+        };
+
         private IRepository<Space, Guid> Spaces => _unitOfWork.Repository<Space, Guid>();
         private IRepository<Node, Guid> Nodes => _unitOfWork.Repository<Node, Guid>();
         private IRepository<Entry, Guid> Entries => _unitOfWork.Repository<Entry, Guid>();
@@ -74,7 +87,7 @@ namespace CmdNext.Service.Services
                 Conventions = request.Conventions?.Trim(),
                 SettingsJson = "{}",
                 StateJson = "{}",
-                SchemaJson = JsonSerializer.Serialize(template.EntryTypes),
+                SchemaJson = JsonSerializer.Serialize(template.EntryTypes, SchemaJsonOptions),
                 Status = "active",
                 CreatedOn = DateTime.UtcNow,
                 CreatedBy = userId
@@ -130,7 +143,7 @@ namespace CmdNext.Service.Services
         public async Task<SpaceDto> UpdateSpaceSchemaAsync(Guid userId, Guid spaceId, UpdateSpaceSchemaRequest request)
         {
             var space = await FindSpaceAsync(userId, spaceId);
-            space.SchemaJson = ValidateJson(request.SchemaJson, "schema");
+            space.SchemaJson = ValidateSchemaJson(request.SchemaJson);
             space.UpdatedOn = DateTime.UtcNow;
             space.UpdatedBy = userId;
 
@@ -719,7 +732,7 @@ namespace CmdNext.Service.Services
             var type = string.IsNullOrWhiteSpace(requestedType) ? "note" : requestedType.Trim();
             try
             {
-                var types = JsonSerializer.Deserialize<List<EntryTypeSchema>>(space.SchemaJson) ?? new();
+                var types = JsonSerializer.Deserialize<List<EntryTypeSchema>>(space.SchemaJson, SchemaJsonOptions) ?? new();
                 if (types.Count > 0 && types.All(t => t.Type != type))
                 {
                     throw new ArgumentException($"'{type}' is not a valid entry type for this space. Valid types: {string.Join(", ", types.Select(t => t.Type))}.");
@@ -825,6 +838,49 @@ namespace CmdNext.Service.Services
         {
             if (tags is null) return Array.Empty<string>();
             return tags.Select(t => t.Trim().ToLowerInvariant()).Where(t => t.Length > 0).Distinct().ToArray();
+        }
+
+        /// <summary>
+        /// Validates an entry-type schema: an array of types with non-empty, unique, lowercase
+        /// keys. Re-serialized through <see cref="SchemaJsonOptions"/> so what is stored is
+        /// normalized regardless of the casing the caller sent.
+        /// </summary>
+        private static string ValidateSchemaJson(string json)
+        {
+            if (string.IsNullOrWhiteSpace(json)) return "[]";
+
+            List<EntryTypeSchema>? types;
+            try
+            {
+                types = JsonSerializer.Deserialize<List<EntryTypeSchema>>(json, SchemaJsonOptions);
+            }
+            catch (JsonException)
+            {
+                throw new ArgumentException("Invalid JSON for schema.");
+            }
+
+            if (types == null) return "[]";
+
+            var seen = new HashSet<string>();
+            foreach (var t in types)
+            {
+                t.Type = (t.Type ?? string.Empty).Trim().ToLowerInvariant();
+                if (t.Type.Length == 0)
+                    throw new ArgumentException("Every entry type needs a name.");
+                if (!seen.Add(t.Type))
+                    throw new ArgumentException($"Duplicate entry type '{t.Type}'.");
+
+                if (string.IsNullOrWhiteSpace(t.Label)) t.Label = t.Type;
+                t.Fields ??= new List<FieldSchema>();
+                foreach (var f in t.Fields)
+                {
+                    f.Name = (f.Name ?? string.Empty).Trim();
+                    if (f.Name.Length == 0)
+                        throw new ArgumentException($"A field of '{t.Type}' is missing a name.");
+                }
+            }
+
+            return JsonSerializer.Serialize(types, SchemaJsonOptions);
         }
 
         private static string ValidateJson(string json, string fieldName)

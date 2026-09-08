@@ -27,20 +27,16 @@
            [innerHTML]="body | chatMarkdown"></div>
     </section>
 
-    <div class="form-actions">
-      <button type="button" class="btn danger" *ngIf="!isNew" (click)="deleteEntry()">Delete</button>
-      <div class="spacer"></div>
-      <button type="button" class="btn" (click)="cancel()">Cancel</button>
-      <button type="button" class="btn primary" (click)="save()" [disabled]="isSaving">
-        {{ isSaving ? 'Saving…' : 'Save' }}
-      </button>
-    </div>
-
-    <section class="field-group" *ngIf="entryTypes.length > 1">
-      <label>Type</label>
-      <select [(ngModel)]="type" (ngModelChange)="onTypeChange()" [disabled]="!isNew">
+    <section class="field-group">
+      <label for="type">Type</label>
+      <!-- Types are managed per space in Settings; here they are only picked. -->
+      <select id="type" [(ngModel)]="type" (ngModelChange)="onTypeChange()" [disabled]="!isNew">
         <option *ngFor="let t of entryTypes" [value]="t.type">{{ t.label }}</option>
       </select>
+      <p class="field-hint" *ngIf="isNew && !entryTypes.length">
+        This space has no entry types yet —
+        <a [routerLink]="['/spaces', spaceId, 'settings']">add one in settings</a>.
+      </p>
     </section>
 
     <section class="field-row">
@@ -76,6 +72,15 @@
       <label for="tags">Tags (comma separated)</label>
       <input id="tags" type="text" [(ngModel)]="tagsText" placeholder="e.g. arpeggio, technique" />
     </section>
+
+    <div class="form-actions">
+      <button type="button" class="btn danger" *ngIf="!isNew" (click)="deleteEntry()">Delete</button>
+      <div class="spacer"></div>
+      <button type="button" class="btn" (click)="cancel()">Cancel</button>
+      <button type="button" class="btn primary" (click)="save()" [disabled]="isSaving">
+        {{ isSaving ? 'Saving…' : 'Save' }}
+      </button>
+    </div>
 
     <section class="append-section" *ngIf="!isNew">
       <button type="button" class="link-btn" (click)="showAppend = !showAppend">
