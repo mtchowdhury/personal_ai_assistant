@@ -7,7 +7,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using CmdNext.Api;
+using Microsoft.EntityFrameworkCore;
 using CmdNext.Repository;
+using CmdNext.Repository.Implementation;
 using CmdNext.Service;
 using CmdNext.AI.Service.Generic;
 
@@ -174,6 +176,30 @@ builder.Services.ConfigureApplicationServices(builder.Configuration);
 builder.Services.ConfigureRepositoryServices(builder.Configuration);
 
 var app = builder.Build();
+
+// Apply any pending EF migrations before serving traffic, so a deploy carries its own
+// schema changes instead of needing a manual step on the host. Runs before the request
+// pipeline is exercised; a failure here aborts startup deliberately rather than leaving
+// the API up and answering every query with a missing-relation error.
+// Set "Database:AutoMigrate" to false to manage the schema out-of-band instead.
+if (app.Configuration.GetValue<bool?>("Database:AutoMigrate") ?? true)
+{
+    using var migrationScope = app.Services.CreateScope();
+    var dbContext = migrationScope.ServiceProvider.GetRequiredService<CmdNextDbContext>();
+
+    var pending = (await dbContext.Database.GetPendingMigrationsAsync()).ToList();
+    if (pending.Count > 0)
+    {
+        Log.Information("Applying {Count} pending migration(s): {Migrations}",
+            pending.Count, string.Join(", ", pending));
+        await dbContext.Database.MigrateAsync();
+        Log.Information("Database migrations applied");
+    }
+    else
+    {
+        Log.Information("Database schema is up to date; no migrations to apply");
+    }
+}
 
 // Configure the HTTP request pipeline.
 // Swagger visibility is driven by configuration rather than the hosting environment:

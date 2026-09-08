@@ -41,6 +41,9 @@
     <ProjectReference Include="..\cmdnext.Service\cmdnext.Service.csproj" />
     <ProjectReference Include="..\cmdnext.AI.Service\cmdnext.AI.Service.csproj" />
     <ProjectReference Include="..\cmdnext.Models\cmdnext.Models.csproj" />
+    <!-- Referenced so the migrations assembly is present at runtime for the
+         startup Database.Migrate() call; no types from it are used directly. -->
+    <ProjectReference Include="..\cmdnext.Migration\cmdnext.Migration.csproj" />
   </ItemGroup>
 
 </Project>

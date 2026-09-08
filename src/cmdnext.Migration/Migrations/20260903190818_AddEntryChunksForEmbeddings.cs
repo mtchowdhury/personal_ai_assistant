@@ -12,6 +12,13 @@ namespace CmdNext.EF.Migration.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // The "vector" type below comes from pgvector. Existing databases already had
+            // the extension installed out-of-band, so this was originally omitted; it is
+            // required for the migration chain to build a database from scratch (which is
+            // what the API's startup Migrate() does on a fresh deploy). IF NOT EXISTS keeps
+            // it a no-op where the extension is already present, as in the pgvector image.
+            migrationBuilder.Sql("CREATE EXTENSION IF NOT EXISTS vector;");
+
             migrationBuilder.CreateTable(
                 name: "EntryChunks",
                 schema: "spaces",

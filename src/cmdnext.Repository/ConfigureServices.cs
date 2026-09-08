@@ -24,6 +24,11 @@ namespace CmdNext.Repository
                 options.UseNpgsql(connectionString, npgsqlOptions =>
                 {
                     npgsqlOptions.MigrationsAssembly("cmdnext.Migration");
+                    // Must match DesignTimeDbContextFactory: existing databases record their
+                    // migration history in the "ai" schema, so the runtime Migrate() has to
+                    // look there too. Left at the default, it would read an empty "public"
+                    // history and try to re-apply every migration over a populated database.
+                    npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", "ai");
                     npgsqlOptions.UseVector();
                 });
             });
