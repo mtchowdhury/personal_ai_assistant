@@ -1,0 +1,85 @@
+// Shared chrome for every d-tasks screen. Mirrors the finance module's look so the
+// two features read as one app.
+
+.dtasks-page { min-height: 100vh; background: #f5f5f5; color: #1a1a1a; }
+
+.dtasks-header {
+  display: flex; justify-content: space-between; align-items: center; gap: 16px;
+  padding: 16px 24px; background: #fff; border-bottom: 1px solid #e0e0e0; flex-wrap: wrap;
+
+  .header-left { display: flex; align-items: center; gap: 16px; h1 { margin: 0; font-size: 22px; } }
+  .header-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  .link-btn { border: none; background: none; color: #2f6fed; cursor: pointer; font-size: 14px; padding: 0; }
+
+  .header-btn {
+    padding: 8px 16px; border: 1px solid #d0d0d0; border-radius: 8px; background: #fff; color: #333;
+    font-size: 14px; text-decoration: none; cursor: pointer; white-space: nowrap;
+    &:hover { background: #f7f7f7; }
+    &.primary { background: #2f6fed; color: #fff; border-color: #2f6fed; &:hover { background: #2860d8; } }
+  }
+}
+
+// The tabs that switch between calendar / board / list.
+.view-tabs {
+  display: flex; gap: 4px; padding: 12px 24px 0; background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+
+  a {
+    padding: 8px 14px; font-size: 14px; color: #666; text-decoration: none;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    &:hover { color: #1a1a1a; }
+    &.active { color: #2f6fed; border-bottom-color: #2f6fed; font-weight: 600; }
+  }
+}
+
+.dtasks-main { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+.empty { color: #777; padding: 24px 0; }
+
+// Filter chips, shared by the list and board toolbars.
+.chip {
+  padding: 6px 12px; border: 1px solid #d5d5d5; border-radius: 999px; background: #fff;
+  color: #444; font-size: 13px; cursor: pointer; white-space: nowrap;
+  &:hover { border-color: #bbb; }
+  &.active { background: #2f6fed; border-color: #2f6fed; color: #fff; }
+}
+
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center; }
+
+.filter-label { font-size: 12px; color: #888; margin-right: 2px; }
+
+// Status pill — colour comes from the status row, so it is set inline.
+.status-pill {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 500;
+  color: #fff; background: #6b7280; white-space: nowrap;
+
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: rgba(255, 255, 255, 0.85); }
+}
+
+.priority-pill {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 600; white-space: nowrap;
+
+  &.high { background: #fdeceb; color: #b3352c; }
+  &.medium { background: #fdf3e3; color: #97671b; }
+  &.low { background: #eef1f5; color: #5b6673; }
+}
+
+.tag-chip {
+  display: inline-block; padding: 2px 8px; border-radius: 6px;
+  font-size: 11px; background: #eef1f5; color: #4a5462; white-space: nowrap;
+}
+
+.form-field {
+  display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: #555;
+
+  input[type="text"], input[type="date"], input[type="number"], select, textarea {
+    padding: 9px 10px; border: 1px solid #d5d5d5; border-radius: 8px;
+    font-size: 14px; color: #1a1a1a; background: #fff; font-family: inherit;
+    &:focus { outline: none; border-color: #2f6fed; }
+  }
+
+  textarea { resize: vertical; min-height: 96px; }
+}

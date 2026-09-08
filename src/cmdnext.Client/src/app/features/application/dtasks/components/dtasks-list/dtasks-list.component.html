@@ -1,0 +1,185 @@
+<div class="dtasks-page">
+  <header class="dtasks-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Dashboard</button>
+      <h1>All Tasks</h1>
+    </div>
+    <div class="header-right">
+      <a routerLink="/dtasks/tags" class="header-btn">Tags</a>
+      <a routerLink="/dtasks/new" class="header-btn primary">+ Add task</a>
+    </div>
+  </header>
+
+  <nav class="view-tabs">
+    <a routerLink="/dtasks">Calendar</a>
+    <a routerLink="/dtasks/board">Board</a>
+    <a routerLink="/dtasks/list" class="active">List</a>
+  </nav>
+
+  <main class="dtasks-main">
+    <div class="search-bar">
+      <input type="search"
+             [(ngModel)]="searchTerm"
+             (ngModelChange)="onSearchChange()"
+             placeholder="Search task title or notes"
+             aria-label="Search tasks">
+      <button type="button" class="clear-search" *ngIf="searchTerm" (click)="clearSearch()" aria-label="Clear search">✕</button>
+    </div>
+
+    <!-- Status filter -->
+    <div class="filters">
+      <span class="filter-label">Status</span>
+      <button type="button" class="chip" [class.active]="activeStatusIds.length === 0" (click)="clearStatuses()">All</button>
+      <button type="button"
+              *ngFor="let s of statuses"
+              class="chip"
+              [class.active]="isStatusActive(s.id)"
+              [attr.aria-pressed]="isStatusActive(s.id)"
+              (click)="toggleStatus(s.id)">{{ s.name }}</button>
+    </div>
+
+    <!-- Tag filter -->
+    <div class="filters">
+      <span class="filter-label">Tags</span>
+      <button type="button" class="chip" [class.active]="activeTags.length === 0" (click)="clearTags()">All</button>
+      <button type="button"
+              *ngFor="let t of tags"
+              class="chip"
+              [class.active]="isTagActive(t.name)"
+              [attr.aria-pressed]="isTagActive(t.name)"
+              (click)="toggleTag(t.name)">{{ t.name }}</button>
+    </div>
+
+    <!-- Structured filters -->
+    <div class="filters filter-row">
+      <label class="form-field inline">
+        <span class="filter-label">Priority</span>
+        <select [(ngModel)]="priority" (ngModelChange)="load()">
+          <option value="">Any</option>
+          <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
+        </select>
+      </label>
+
+      <label class="form-field inline">
+        <span class="filter-label">Category</span>
+        <select [(ngModel)]="category" (ngModelChange)="load()">
+          <option value="">Any</option>
+          <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+        </select>
+      </label>
+
+      <label class="form-field inline">
+        <span class="filter-label">Date</span>
+        <select [(ngModel)]="scheduled" (ngModelChange)="load()">
+          <option value="">Any</option>
+          <option value="no">Scheduled</option>
+          <option value="yes">Unscheduled</option>
+        </select>
+      </label>
+
+      <label class="form-field inline">
+        <span class="filter-label">From</span>
+        <input type="date" [(ngModel)]="from" (ngModelChange)="load()">
+      </label>
+
+      <label class="form-field inline">
+        <span class="filter-label">To</span>
+        <input type="date" [(ngModel)]="to" (ngModelChange)="load()">
+      </label>
+
+      <label class="check">
+        <input type="checkbox" [(ngModel)]="includeDone" (ngModelChange)="load()">
+        Show completed
+      </label>
+
+      <label class="check">
+        <input type="checkbox" [(ngModel)]="topLevelOnly" (ngModelChange)="load()">
+        Hide subtasks
+      </label>
+
+      <button type="button" class="reset-btn" *ngIf="hasFilters" (click)="resetFilters()">Reset filters</button>
+    </div>
+
+    <div class="result-bar">
+      <span>{{ tasks.length }} task(s)</span>
+      <span class="dot-sep" *ngIf="tasks.length">·</span>
+      <span *ngIf="tasks.length">{{ doneCount }} done</span>
+    </div>
+
+    <app-loading-spinner *ngIf="isLoading" label="Loading tasks…"></app-loading-spinner>
+
+    <div *ngIf="!isLoading && tasks.length === 0" class="empty">
+      <ng-container *ngIf="hasFilters; else noTasksAtAll">No tasks match these filters.</ng-container>
+      <ng-template #noTasksAtAll>No tasks yet. Add one, or ask the AI chat to create it.</ng-template>
+    </div>
+
+    <div class="table-wrap" *ngIf="!isLoading && tasks.length > 0">
+      <table class="task-table">
+        <thead>
+          <tr>
+            <th class="col-check"></th>
+            <th class="sortable" (click)="sort('title')">Task <span class="sort-icon">{{ sortIcon('title') }}</span></th>
+            <th class="sortable" (click)="sort('scheduledOn')">Date <span class="sort-icon">{{ sortIcon('scheduledOn') }}</span></th>
+            <th class="sortable" (click)="sort('status')">Status <span class="sort-icon">{{ sortIcon('status') }}</span></th>
+            <th class="sortable" (click)="sort('priority')">Priority <span class="sort-icon">{{ sortIcon('priority') }}</span></th>
+            <th class="sortable" (click)="sort('duration')">Duration <span class="sort-icon">{{ sortIcon('duration') }}</span></th>
+            <th>Tags</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let task of tasks" [class.done]="task.isDone" (click)="open(task)">
+            <td class="col-check">
+              <input type="checkbox"
+                     [checked]="task.isDone"
+                     (click)="toggle(task, $event)"
+                     [attr.aria-label]="'Toggle ' + task.title">
+            </td>
+
+            <td class="col-title">
+              <span class="sub-marker" *ngIf="task.parentId" title="Subtask">↳</span>
+              <span class="notes-icon" *ngIf="task.hasNotes" title="Has notes">📄</span>
+              <span class="title-text">{{ task.title }}</span>
+              <span class="sub-count" *ngIf="task.subtaskCount > 0">
+                {{ task.subtaskDoneCount }}/{{ task.subtaskCount }}
+              </span>
+            </td>
+
+            <td class="col-date">
+              <span *ngIf="task.scheduledOn">{{ task.scheduledOn | date:'MMM d, y' }}</span>
+              <span class="muted" *ngIf="!task.scheduledOn">—</span>
+              <span class="slot" *ngIf="task.timeOfDay">{{ task.timeOfDay }}</span>
+            </td>
+
+            <td>
+              <span class="status-pill" [style.background]="task.statusColor || '#6b7280'">
+                <span class="dot"></span>{{ task.statusName }}
+              </span>
+            </td>
+
+            <td>
+              <span class="priority-pill"
+                    [class.high]="task.priority === 'High'"
+                    [class.medium]="task.priority === 'Medium'"
+                    [class.low]="task.priority === 'Low'">{{ task.priority }}</span>
+            </td>
+
+            <td class="col-duration">
+              <span *ngIf="task.approxDurationMinutes">{{ task.approxDurationMinutes }}m</span>
+              <span class="muted" *ngIf="!task.approxDurationMinutes">—</span>
+            </td>
+
+            <td class="col-tags">
+              <span class="tag-chip" *ngFor="let t of task.tags">{{ t }}</span>
+              <span class="muted" *ngIf="!task.tags.length">—</span>
+            </td>
+
+            <td class="col-actions">
+              <button type="button" class="row-btn danger" (click)="delete(task, $event)" aria-label="Delete task">✕</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>

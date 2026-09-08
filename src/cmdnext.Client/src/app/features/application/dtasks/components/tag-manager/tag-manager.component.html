@@ -1,0 +1,57 @@
+<div class="dtasks-page">
+  <header class="dtasks-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Task Manager</button>
+      <h1>Tags</h1>
+    </div>
+    <div class="header-right">
+      <a routerLink="/dtasks/statuses" class="header-btn">Statuses</a>
+    </div>
+  </header>
+
+  <main class="dtasks-main manager-main">
+    <p class="hint">
+      These tags fill the dropdown on the task form. Renaming one updates it on every task
+      that uses it; deleting one removes it from those tasks.
+    </p>
+
+    <app-loading-spinner *ngIf="isLoading" label="Loading tags…"></app-loading-spinner>
+
+    <ul class="row-list" *ngIf="!isLoading">
+      <li *ngFor="let t of tags" class="row">
+        <ng-container *ngIf="editingId !== t.id">
+          <span class="swatch" [style.background]="t.color || '#6b7280'"></span>
+          <span class="row-name">{{ t.name }}</span>
+          <span class="row-count">{{ t.taskCount }} task(s)</span>
+          <span class="row-actions">
+            <button type="button" class="row-btn" (click)="startEdit(t)">Edit</button>
+            <button type="button" class="row-btn danger" (click)="remove(t)">Delete</button>
+          </span>
+        </ng-container>
+
+        <ng-container *ngIf="editingId === t.id">
+          <input type="color" class="color-input" [(ngModel)]="editColor" aria-label="Tag colour">
+          <input type="text" class="name-input" [(ngModel)]="editName" (keyup.enter)="saveEdit(t)" aria-label="Tag name">
+          <span class="row-actions">
+            <button type="button" class="row-btn primary" (click)="saveEdit(t)">Save</button>
+            <button type="button" class="row-btn" (click)="cancelEdit()">Cancel</button>
+          </span>
+        </ng-container>
+      </li>
+    </ul>
+
+    <div class="empty" *ngIf="!isLoading && tags.length === 0">No tags yet. Add one below.</div>
+
+    <section class="add-card" *ngIf="!isLoading">
+      <h2>Add a tag</h2>
+      <div class="add-row">
+        <input type="color" class="color-input" [(ngModel)]="newColor" aria-label="New tag colour">
+        <input type="text" class="name-input" [(ngModel)]="newName" (keyup.enter)="create()"
+               placeholder="e.g. Errands" aria-label="New tag name">
+        <button type="button" class="header-btn primary" [disabled]="!newName.trim() || isSaving" (click)="create()">
+          {{ isSaving ? 'Adding…' : 'Add' }}
+        </button>
+      </div>
+    </section>
+  </main>
+</div>

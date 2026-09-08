@@ -3,6 +3,9 @@ using CmdNext.Models.Domain.Model.App.Ai;
 using CmdNext.Models.Domain.Model.App.Admin;
 using CmdNext.Models.Domain.Model.App.Finance;
 using CmdNext.Models.Domain.Model.App.Spaces;
+using CmdNext.Models.Domain.Model.App.DTasks;
+// TaskStatus collides with System.Threading.Tasks.TaskStatus.
+using DTaskStatus = CmdNext.Models.Domain.Model.App.DTasks.TaskStatus;
 
 namespace CmdNext.Repository.Implementation
 {
@@ -35,6 +38,11 @@ namespace CmdNext.Repository.Implementation
         public DbSet<Attachment> Attachments { get; set; }
         public DbSet<EntryChunk> EntryChunks { get; set; }
 
+        // DTasks Schema
+        public DbSet<DailyTask> Tasks { get; set; }
+        public DbSet<DTaskStatus> TaskStatuses { get; set; }
+        public DbSet<TaskTag> TaskTags { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -58,6 +66,10 @@ namespace CmdNext.Repository.Implementation
             modelBuilder.Entity<Entry>().ToTable("Entries", "spaces");
             modelBuilder.Entity<Attachment>().ToTable("Attachments", "spaces");
             modelBuilder.Entity<EntryChunk>().ToTable("EntryChunks", "spaces");
+
+            modelBuilder.Entity<DailyTask>().ToTable("Tasks", "dtasks");
+            modelBuilder.Entity<DTaskStatus>().ToTable("TaskStatuses", "dtasks");
+            modelBuilder.Entity<TaskTag>().ToTable("TaskTags", "dtasks");
 
             // Configure relationships
             modelBuilder.Entity<AiChatSession>()
@@ -192,6 +204,43 @@ namespace CmdNext.Repository.Implementation
 
             modelBuilder.Entity<EntryChunk>().HasIndex(c => c.EntryId);
             modelBuilder.Entity<EntryChunk>().HasIndex(c => c.SpaceId);
+
+            // ---- DTasks ----
+
+            // A task keeps its status; a status in use cannot be dropped out from under it.
+            modelBuilder.Entity<DailyTask>()
+                .HasOne(t => t.Status)
+                .WithMany()
+                .HasForeignKey(t => t.StatusId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Deleting a parent deletes its subtasks with it.
+            modelBuilder.Entity<DailyTask>()
+                .HasMany(t => t.Subtasks)
+                .WithOne(t => t.Parent)
+                .HasForeignKey(t => t.ParentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Tags as a native text[] column, same as Spaces entries.
+            modelBuilder.Entity<DailyTask>().Property(t => t.Tags).HasColumnType("text[]");
+
+            // Enums are stored as ints; the DTO layer maps them to names.
+            modelBuilder.Entity<DailyTask>().Property(t => t.Category).HasConversion<int>();
+            modelBuilder.Entity<DailyTask>().Property(t => t.Priority).HasConversion<int>();
+            modelBuilder.Entity<DailyTask>().Property(t => t.TimeOfDay).HasConversion<int>();
+
+            modelBuilder.Entity<DailyTask>().HasIndex(t => t.UserId);
+            // The calendar and list views both filter by user and scan a date window.
+            modelBuilder.Entity<DailyTask>().HasIndex(t => new { t.UserId, t.ScheduledOn });
+            modelBuilder.Entity<DailyTask>().HasIndex(t => new { t.UserId, t.StatusId });
+            modelBuilder.Entity<DailyTask>().HasIndex(t => t.ParentId);
+            modelBuilder.Entity<DailyTask>().HasIndex(t => t.Tags).HasMethod("gin");
+
+            modelBuilder.Entity<DTaskStatus>().HasIndex(s => s.UserId);
+            modelBuilder.Entity<DTaskStatus>().HasIndex(s => new { s.UserId, s.Name }).IsUnique();
+
+            modelBuilder.Entity<TaskTag>().HasIndex(t => t.UserId);
+            modelBuilder.Entity<TaskTag>().HasIndex(t => new { t.UserId, t.Name }).IsUnique();
         }
     }
 }

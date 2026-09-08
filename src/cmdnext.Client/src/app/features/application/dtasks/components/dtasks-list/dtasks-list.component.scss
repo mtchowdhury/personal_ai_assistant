@@ -1,0 +1,108 @@
+@use '../../dtasks-shared' as *;
+
+.dtasks-main { max-width: 1300px; }
+
+.search-bar {
+  position: relative; margin-bottom: 12px;
+
+  input {
+    width: 100%; box-sizing: border-box;
+    padding: 10px 36px 10px 12px;
+    border: 1px solid #d5d5d5; border-radius: 8px;
+    font-size: 14px; color: #1a1a1a; background: #fff;
+    &::placeholder { color: #999; }
+    &:focus { outline: none; border-color: #2f6fed; }
+  }
+
+  .clear-search {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    border: none; background: none; color: #999; cursor: pointer; font-size: 13px;
+    &:hover { color: #444; }
+  }
+}
+
+.filter-row {
+  padding: 12px; background: #fff; border: 1px solid #e5e5e5; border-radius: 10px;
+  row-gap: 10px;
+}
+
+.form-field.inline {
+  flex-direction: row; align-items: center; gap: 6px;
+  select, input { padding: 6px 8px; font-size: 13px; }
+}
+
+.check {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: #555; cursor: pointer; user-select: none;
+  input { cursor: pointer; }
+}
+
+.reset-btn {
+  margin-left: auto; padding: 6px 12px;
+  border: 1px solid #d5d5d5; border-radius: 8px; background: #fff;
+  color: #b3352c; font-size: 13px; cursor: pointer;
+  &:hover { background: #fdf2f1; border-color: #e6b4af; }
+}
+
+.result-bar {
+  display: flex; gap: 6px; align-items: center;
+  font-size: 12px; color: #888; margin: 12px 0 8px;
+  .dot-sep { color: #ccc; }
+}
+
+.table-wrap {
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 12px;
+  overflow-x: auto;
+}
+
+.task-table {
+  width: 100%; border-collapse: collapse; font-size: 13.5px;
+
+  th, td { padding: 10px 12px; text-align: left; vertical-align: middle; }
+
+  thead th {
+    font-size: 12px; font-weight: 600; color: #888; text-transform: uppercase;
+    letter-spacing: 0.3px; border-bottom: 1px solid #eee; white-space: nowrap;
+    background: #fafafa;
+
+    &.sortable { cursor: pointer; user-select: none; &:hover { color: #2f6fed; } }
+    .sort-icon { font-size: 9px; color: #2f6fed; margin-left: 2px; }
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #f2f2f2; cursor: pointer;
+    &:last-child { border-bottom: none; }
+    &:hover { background: #fafbfc; }
+
+    // Completed rows stay readable but visibly settled.
+    &.done .col-title .title-text { text-decoration: line-through; color: #999; }
+  }
+
+  .col-check { width: 34px; input { cursor: pointer; } }
+  .col-actions { width: 40px; text-align: right; }
+
+  .col-title {
+    font-weight: 600; color: #1a1a1a; min-width: 220px;
+
+    .sub-marker { color: #aaa; margin-right: 4px; }
+    .notes-icon { font-size: 11px; margin-right: 3px; }
+    .sub-count {
+      margin-left: 6px; font-size: 11px; font-weight: 500; color: #888;
+      background: #f0f2f5; border-radius: 999px; padding: 1px 7px;
+    }
+  }
+
+  .col-date { white-space: nowrap; color: #555; }
+  .slot { display: block; font-size: 11px; color: #999; }
+
+  .col-duration { white-space: nowrap; color: #555; }
+  .col-tags { display: table-cell; .tag-chip { margin-right: 3px; } }
+
+  .muted { color: #ccc; }
+
+  .row-btn {
+    border: none; background: none; cursor: pointer;
+    color: #bbb; font-size: 13px; padding: 4px 6px; border-radius: 6px;
+    &:hover { color: #b3352c; background: #fdf2f1; }
+  }
+}

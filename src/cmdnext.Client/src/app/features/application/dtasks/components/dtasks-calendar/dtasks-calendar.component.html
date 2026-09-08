@@ -1,0 +1,94 @@
+<div class="dtasks-page">
+  <header class="dtasks-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Dashboard</button>
+      <h1>Task Manager</h1>
+    </div>
+    <div class="header-right">
+      <label class="done-toggle">
+        <input type="checkbox" [(ngModel)]="includeDone" (ngModelChange)="onIncludeDoneChange()">
+        Show completed
+      </label>
+      <a routerLink="/dtasks/statuses" class="header-btn">Statuses</a>
+      <a routerLink="/dtasks/tags" class="header-btn">Tags</a>
+      <a routerLink="/dtasks/new" class="header-btn primary">+ Add task</a>
+    </div>
+  </header>
+
+  <nav class="view-tabs">
+    <a routerLink="/dtasks" class="active">Calendar</a>
+    <a routerLink="/dtasks/board">Board</a>
+    <a routerLink="/dtasks/list">List</a>
+  </nav>
+
+  <main class="dtasks-main calendar-main">
+    <div class="month-bar">
+      <h2>{{ monthLabel }}</h2>
+      <div class="month-nav">
+        <button type="button" (click)="prevMonth()" aria-label="Previous month">‹</button>
+        <button type="button" class="today-btn" (click)="goToday()">Today</button>
+        <button type="button" (click)="nextMonth()" aria-label="Next month">›</button>
+      </div>
+    </div>
+
+    <app-loading-spinner *ngIf="isLoading" label="Loading tasks…"></app-loading-spinner>
+
+    <div class="calendar" *ngIf="!isLoading">
+      <div class="weekday-row">
+        <div class="weekday" *ngFor="let d of weekdays">{{ d }}</div>
+      </div>
+
+      <div class="week" *ngFor="let week of weeks">
+        <div class="day-cell"
+             *ngFor="let day of week"
+             [class.outside]="!day.inCurrentMonth"
+             [class.today]="day.isToday"
+             [class.drag-over]="dragOverKey === day.key"
+             (dragover)="onDragOver(day, $event)"
+             (dragleave)="onDragLeave(day)"
+             (drop)="onDrop(day, $event)">
+
+          <div class="day-head">
+            <span class="day-number">{{ day.dayOfMonth }}</span>
+            <button type="button" class="add-day" (click)="addOn(day)" [attr.aria-label]="'Add task on ' + day.key">+</button>
+          </div>
+
+          <div class="day-tasks">
+            <article class="task-card"
+                     *ngFor="let task of day.tasks"
+                     [class.done]="task.isDone"
+                     draggable="true"
+                     (dragstart)="onDragStart(task, $event)"
+                     (dragend)="onDragEnd()"
+                     (click)="open(task)">
+              <div class="card-title">
+                <span class="notes-icon" *ngIf="task.hasNotes" title="Has notes">📄</span>
+                {{ task.title }}
+              </div>
+
+              <div class="card-meta">
+                <span class="status-pill"
+                      [style.background]="task.statusColor || '#6b7280'"
+                      (click)="toggle(task, $event)"
+                      title="Click to toggle done">
+                  <span class="dot"></span>{{ task.statusName }}
+                </span>
+                <span class="priority-pill"
+                      *ngIf="task.priority === 'High'"
+                      [class.high]="true">High</span>
+              </div>
+
+              <div class="card-tags" *ngIf="task.tags.length">
+                <span class="tag-chip" *ngFor="let t of task.tags">{{ t }}</span>
+              </div>
+
+              <div class="card-sub" *ngIf="task.subtaskCount > 0">
+                {{ task.subtaskDoneCount }}/{{ task.subtaskCount }} subtasks
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

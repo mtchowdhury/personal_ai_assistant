@@ -33,6 +33,11 @@ namespace CmdNext.Service
             services.AddScoped<IAiToolProvider, SpacesAiToolProvider>();
             services.AddScoped<IEntryEmbeddingService, EntryEmbeddingService>();
 
+            // Configure DTasks (daily tasks) Service
+            services.AddScoped<IDTaskService, DTaskService>();
+            services.AddScoped<IDTaskAiToolsFactory, DTaskAiToolsFactory>();
+            services.AddScoped<IAiToolProvider, DTaskAiToolProvider>();
+
             // Configure Crypto Helper
             var cryptoSettings = configuration.GetSection("CryptoSettings");
             var cryptoKey = cryptoSettings["Key"] ?? "DefaultCryptoKeyChangeInProduction";

@@ -23,6 +23,11 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
+    path: 'dtasks',
+    loadChildren: () => import('./dtasks/dtasks.routes').then(m => m.routes),
+    canActivate: [authGuard]
+  },
+  {
     path: 'spaces',
     loadChildren: () => import('./spaces/spaces.routes').then(m => m.routes),
     canActivate: [authGuard]

@@ -1,0 +1,82 @@
+@use '../../dtasks-shared' as *;
+
+.manager-main { max-width: 860px; }
+
+.hint { font-size: 13px; color: #777; margin: 0 0 16px; line-height: 1.5; }
+
+.row-list {
+  list-style: none; margin: 0 0 20px; padding: 0;
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; overflow: hidden;
+}
+
+.row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-bottom: 1px solid #f2f2f2;
+  &:last-child { border-bottom: none; }
+}
+
+.swatch { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+
+.row-name { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+
+.badge {
+  font-size: 11px; padding: 1px 7px; border-radius: 999px;
+  background: #f0f2f5; color: #6b7280;
+
+  &.done-badge { background: #e6f4ec; color: #2f7a52; }
+}
+
+.row-count { font-size: 12px; color: #999; margin-left: auto; white-space: nowrap; }
+
+.row-actions { display: flex; gap: 4px; align-items: center; }
+
+.row-btn {
+  padding: 5px 10px; border: 1px solid #e0e0e0; border-radius: 7px;
+  background: #fff; color: #444; font-size: 12.5px; cursor: pointer;
+  &:hover:not(:disabled) { background: #f5f5f5; }
+  &:disabled { color: #ccc; cursor: not-allowed; }
+
+  &.primary { background: #2f6fed; border-color: #2f6fed; color: #fff; &:hover { background: #2860d8; } }
+  &.danger { color: #b3352c; &:hover:not(:disabled) { background: #fdf2f1; border-color: #e6b4af; } }
+}
+
+.color-input {
+  width: 34px; height: 30px; padding: 2px; flex: none;
+  border: 1px solid #d5d5d5; border-radius: 7px; background: #fff; cursor: pointer;
+}
+
+.name-input {
+  flex: 1; min-width: 140px; padding: 7px 10px;
+  border: 1px solid #d5d5d5; border-radius: 8px; font-size: 14px; color: #1a1a1a;
+  &::placeholder { color: #aaa; }
+  &:focus { outline: none; border-color: #2f6fed; }
+}
+
+.check {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: #555; cursor: pointer; user-select: none; white-space: nowrap;
+  input { cursor: pointer; }
+}
+
+.add-card {
+  background: #fff; border: 1px solid #e5e5e5; border-radius: 12px; padding: 18px 20px;
+
+  h2 { margin: 0 0 12px; font-size: 15px; font-weight: 600; color: #333; }
+
+  .add-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+  .header-btn {
+    padding: 8px 18px; border: 1px solid #d0d0d0; border-radius: 8px;
+    background: #fff; color: #333; font-size: 14px; cursor: pointer;
+    &.primary {
+      background: #2f6fed; color: #fff; border-color: #2f6fed;
+      &:hover { background: #2860d8; }
+      &:disabled { background: #a9c0f2; border-color: #a9c0f2; cursor: not-allowed; }
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .row { flex-wrap: wrap; }
+  .row-count { margin-left: 0; }
+}

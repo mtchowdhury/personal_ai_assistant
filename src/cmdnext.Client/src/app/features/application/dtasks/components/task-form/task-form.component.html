@@ -1,0 +1,131 @@
+<div class="dtasks-page">
+  <header class="dtasks-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="cancel()">← Task Manager</button>
+      <h1>{{ isEdit ? 'Edit Task' : 'Add Task' }}</h1>
+    </div>
+    <div class="header-right" *ngIf="isEdit && !isLoading">
+      <button type="button" class="header-btn danger" (click)="delete()">Delete</button>
+    </div>
+  </header>
+
+  <main class="dtasks-main form-main">
+    <app-loading-spinner *ngIf="isLoading" label="Loading…"></app-loading-spinner>
+
+    <form class="task-form" *ngIf="!isLoading" (ngSubmit)="save()">
+      <label class="form-field">
+        <span>Title</span>
+        <input type="text"
+               [(ngModel)]="title"
+               name="title"
+               placeholder="e.g. pay the docmorris payment"
+               autocomplete="off"
+               required>
+      </label>
+
+      <div class="field-grid">
+        <label class="form-field">
+          <span>Status</span>
+          <select [(ngModel)]="statusId" name="statusId">
+            <option *ngFor="let s of statuses" [value]="s.id">{{ s.name }}</option>
+          </select>
+        </label>
+
+        <label class="form-field">
+          <span>Priority</span>
+          <select [(ngModel)]="priority" name="priority">
+            <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
+          </select>
+        </label>
+
+        <label class="form-field">
+          <span>Category</span>
+          <select [(ngModel)]="category" name="category">
+            <option *ngFor="let c of categories" [value]="c">{{ c }}</option>
+          </select>
+        </label>
+
+        <label class="form-field">
+          <span>Date</span>
+          <input type="date" [(ngModel)]="scheduledOn" name="scheduledOn">
+        </label>
+
+        <label class="form-field">
+          <span>Time of day</span>
+          <select [(ngModel)]="timeOfDay" name="timeOfDay">
+            <option value="">—</option>
+            <option *ngFor="let t of timesOfDay" [value]="t">{{ t }}</option>
+          </select>
+        </label>
+
+        <label class="form-field">
+          <span>Approx duration (minutes)</span>
+          <input type="number" min="0" step="5" [(ngModel)]="approxDurationMinutes" name="duration" placeholder="e.g. 30">
+        </label>
+      </div>
+
+      <label class="form-field">
+        <span>Parent task</span>
+        <select [(ngModel)]="parentId" name="parentId">
+          <option value="">None (top-level task)</option>
+          <option *ngFor="let p of parentOptions" [value]="p.id">{{ p.title }}</option>
+        </select>
+      </label>
+
+      <div class="form-field">
+        <span>Tags</span>
+        <div class="tag-picker">
+          <button type="button"
+                  *ngFor="let t of tags"
+                  class="chip"
+                  [class.active]="isTagSelected(t.name)"
+                  [attr.aria-pressed]="isTagSelected(t.name)"
+                  (click)="toggleTag(t.name)">{{ t.name }}</button>
+          <span class="no-tags" *ngIf="tags.length === 0">No tags defined yet.</span>
+        </div>
+      </div>
+
+      <label class="form-field">
+        <span>Notes</span>
+        <textarea [(ngModel)]="notes" name="notes" placeholder="Any extra detail about this task…"></textarea>
+      </label>
+
+      <!-- Subtasks are saved as they are added, not with the form. -->
+      <div class="form-field subtasks-field" *ngIf="isEdit">
+        <span>Subtasks <span class="progress" *ngIf="subtasks.length">{{ subtaskProgress }}</span></span>
+
+        <ul class="subtask-list" *ngIf="subtasks.length">
+          <li *ngFor="let s of subtasks" [class.done]="s.isDone">
+            <input type="checkbox" [checked]="s.isDone" (change)="toggleSubtask(s)"
+                   [attr.aria-label]="'Toggle ' + s.title">
+            <span class="subtask-title">{{ s.title }}</span>
+            <span class="status-pill" [style.background]="s.statusColor || '#6b7280'">
+              <span class="dot"></span>{{ s.statusName }}
+            </span>
+            <button type="button" class="sub-remove" (click)="removeSubtask(s, $event)"
+                    [attr.aria-label]="'Delete ' + s.title">✕</button>
+          </li>
+        </ul>
+
+        <div class="add-subtask">
+          <input type="text"
+                 [(ngModel)]="newSubtaskTitle"
+                 name="newSubtask"
+                 (keydown.enter)="$event.preventDefault(); addSubtask()"
+                 placeholder="Add a subtask and press Enter"
+                 aria-label="New subtask title">
+          <button type="button" class="sub-add-btn"
+                  [disabled]="!newSubtaskTitle.trim() || isAddingSubtask"
+                  (click)="addSubtask()">Add</button>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="header-btn" (click)="cancel()">Cancel</button>
+        <button type="submit" class="header-btn primary" [disabled]="!canSave">
+          {{ isSaving ? 'Saving…' : (isEdit ? 'Save changes' : 'Add task') }}
+        </button>
+      </div>
+    </form>
+  </main>
+</div>

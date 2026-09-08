@@ -1,0 +1,68 @@
+<div class="dtasks-page">
+  <header class="dtasks-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Task Manager</button>
+      <h1>Statuses</h1>
+    </div>
+    <div class="header-right">
+      <a routerLink="/dtasks/tags" class="header-btn">Tags</a>
+    </div>
+  </header>
+
+  <main class="dtasks-main manager-main">
+    <p class="hint">
+      Statuses are the columns on the board, in this order. A status marked <strong>done</strong>
+      counts a task as complete.
+    </p>
+
+    <app-loading-spinner *ngIf="isLoading" label="Loading statuses…"></app-loading-spinner>
+
+    <ul class="row-list" *ngIf="!isLoading">
+      <li *ngFor="let s of statuses; let i = index" class="row">
+        <ng-container *ngIf="editingId !== s.id">
+          <span class="swatch" [style.background]="s.color || '#6b7280'"></span>
+          <span class="row-name">{{ s.name }}</span>
+          <span class="badge done-badge" *ngIf="s.isDone">done</span>
+          <span class="badge" *ngIf="s.isProtected">built-in</span>
+          <span class="row-count">{{ s.taskCount }} task(s)</span>
+
+          <span class="row-actions">
+            <button type="button" class="row-btn" [disabled]="i === 0" (click)="move(s, -1)" aria-label="Move up">↑</button>
+            <button type="button" class="row-btn" [disabled]="i === statuses.length - 1" (click)="move(s, 1)" aria-label="Move down">↓</button>
+            <button type="button" class="row-btn" (click)="startEdit(s)">Edit</button>
+            <button type="button" class="row-btn danger" *ngIf="!s.isProtected" (click)="remove(s)">Delete</button>
+          </span>
+        </ng-container>
+
+        <ng-container *ngIf="editingId === s.id">
+          <input type="color" class="color-input" [(ngModel)]="editColor" aria-label="Status colour">
+          <input type="text" class="name-input" [(ngModel)]="editName" (keyup.enter)="saveEdit(s)" aria-label="Status name">
+          <label class="check">
+            <input type="checkbox" [(ngModel)]="editIsDone">
+            Counts as done
+          </label>
+          <span class="row-actions">
+            <button type="button" class="row-btn primary" (click)="saveEdit(s)">Save</button>
+            <button type="button" class="row-btn" (click)="cancelEdit()">Cancel</button>
+          </span>
+        </ng-container>
+      </li>
+    </ul>
+
+    <section class="add-card" *ngIf="!isLoading">
+      <h2>Add a status</h2>
+      <div class="add-row">
+        <input type="color" class="color-input" [(ngModel)]="newColor" aria-label="New status colour">
+        <input type="text" class="name-input" [(ngModel)]="newName" (keyup.enter)="create()"
+               placeholder="e.g. Waiting on someone" aria-label="New status name">
+        <label class="check">
+          <input type="checkbox" [(ngModel)]="newIsDone">
+          Counts as done
+        </label>
+        <button type="button" class="header-btn primary" [disabled]="!newName.trim() || isSaving" (click)="create()">
+          {{ isSaving ? 'Adding…' : 'Add' }}
+        </button>
+      </div>
+    </section>
+  </main>
+</div>

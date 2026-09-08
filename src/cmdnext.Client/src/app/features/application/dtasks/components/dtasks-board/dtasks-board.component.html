@@ -1,0 +1,109 @@
+<div class="dtasks-page">
+  <header class="dtasks-header">
+    <div class="header-left">
+      <button type="button" class="link-btn" (click)="goBack()">← Dashboard</button>
+      <h1>Board</h1>
+    </div>
+    <div class="header-right">
+      <a routerLink="/dtasks/statuses" class="header-btn">Statuses</a>
+      <a routerLink="/dtasks/new" class="header-btn primary">+ Add task</a>
+    </div>
+  </header>
+
+  <nav class="view-tabs">
+    <a routerLink="/dtasks">Calendar</a>
+    <a routerLink="/dtasks/board" class="active">Board</a>
+    <a routerLink="/dtasks/list">List</a>
+  </nav>
+
+  <main class="dtasks-main board-main">
+    <div class="search-bar">
+      <input type="search"
+             [(ngModel)]="searchTerm"
+             (ngModelChange)="onSearchChange()"
+             placeholder="Search task title or notes"
+             aria-label="Search tasks">
+      <button type="button" class="clear-search" *ngIf="searchTerm" (click)="clearSearch()" aria-label="Clear search">✕</button>
+    </div>
+
+    <div class="filters">
+      <span class="filter-label">Tags</span>
+      <button type="button" class="chip" [class.active]="activeTags.length === 0" (click)="clearTags()">All</button>
+      <button type="button"
+              *ngFor="let t of tags"
+              class="chip"
+              [class.active]="isTagActive(t.name)"
+              [attr.aria-pressed]="isTagActive(t.name)"
+              (click)="toggleTag(t.name)">{{ t.name }}</button>
+    </div>
+
+    <div class="filters">
+      <label class="form-field inline">
+        <span class="filter-label">Priority</span>
+        <select [(ngModel)]="priority" (ngModelChange)="load()">
+          <option value="">Any</option>
+          <option *ngFor="let p of priorities" [value]="p">{{ p }}</option>
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" [(ngModel)]="topLevelOnly" (ngModelChange)="load()">
+        Hide subtasks
+      </label>
+      <span class="count">{{ totalCount }} task(s)</span>
+    </div>
+
+    <app-loading-spinner *ngIf="isLoading" label="Loading board…"></app-loading-spinner>
+
+    <div class="board" *ngIf="!isLoading">
+      <section class="column"
+               *ngFor="let column of columns"
+               [class.drag-over]="dragOverStatusId === column.statusId"
+               (dragover)="onDragOver(column, $event)"
+               (dragleave)="onDragLeave(column)"
+               (drop)="onDrop(column, $event)">
+
+        <header class="column-head">
+          <span class="column-dot" [style.background]="column.statusColor || '#6b7280'"></span>
+          <h3>{{ column.statusName }}</h3>
+          <span class="column-count">{{ column.tasks.length }}</span>
+        </header>
+
+        <div class="column-body">
+          <article class="task-card"
+                   *ngFor="let task of column.tasks"
+                   [class.done]="task.isDone"
+                   draggable="true"
+                   (dragstart)="onDragStart(task, $event)"
+                   (dragend)="onDragEnd()"
+                   (click)="open(task)">
+
+            <div class="card-title">
+              <span class="notes-icon" *ngIf="task.hasNotes" title="Has notes">📄</span>
+              {{ task.title }}
+            </div>
+
+            <div class="card-meta">
+              <span class="priority-pill"
+                    [class.high]="task.priority === 'High'"
+                    [class.medium]="task.priority === 'Medium'"
+                    [class.low]="task.priority === 'Low'">{{ task.priority }}</span>
+              <span class="date" *ngIf="task.scheduledOn">{{ task.scheduledOn | date:'MMM d' }}</span>
+              <span class="date" *ngIf="!task.scheduledOn">Unscheduled</span>
+              <span class="duration" *ngIf="task.approxDurationMinutes">~{{ task.approxDurationMinutes }}m</span>
+            </div>
+
+            <div class="card-tags" *ngIf="task.tags.length">
+              <span class="tag-chip" *ngFor="let t of task.tags">{{ t }}</span>
+            </div>
+
+            <div class="card-sub" *ngIf="task.subtaskCount > 0">
+              {{ task.subtaskDoneCount }}/{{ task.subtaskCount }} subtasks
+            </div>
+          </article>
+
+          <p class="column-empty" *ngIf="column.tasks.length === 0">Drop tasks here</p>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
