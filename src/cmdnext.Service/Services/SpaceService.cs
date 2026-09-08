@@ -338,8 +338,9 @@ namespace CmdNext.Service.Services
             {
                 foreach (var tag in query.Tags) q = q.Where(e => e.Tags.Contains(tag));
             }
-            if (query.From is { } from) q = q.Where(e => e.OccurredOn != null && e.OccurredOn >= from);
-            if (query.To is { } to) q = q.Where(e => e.OccurredOn != null && e.OccurredOn < to);
+            // Same timestamptz rule as the write path — an Unspecified-kind bound throws.
+            if (NormalizeDate(query.From) is { } from) q = q.Where(e => e.OccurredOn != null && e.OccurredOn >= from);
+            if (NormalizeDate(query.To) is { } to) q = q.Where(e => e.OccurredOn != null && e.OccurredOn < to);
             if (query.Fields is { Count: > 0 })
             {
                 foreach (var kv in query.Fields)
@@ -397,8 +398,8 @@ namespace CmdNext.Service.Services
                 Body = request.Body ?? string.Empty,
                 FieldsJson = ValidateJson(request.FieldsJson ?? "{}", "fields"),
                 Tags = NormalizeTags(request.Tags),
-                OccurredOn = request.OccurredOn,
-                DueOn = request.DueOn,
+                OccurredOn = NormalizeDate(request.OccurredOn),
+                DueOn = NormalizeDate(request.DueOn),
                 Status = request.Status?.Trim(),
                 Source = string.Equals(request.Source, "ai", StringComparison.OrdinalIgnoreCase) ? "ai" : "manual",
                 CreatedOn = DateTime.UtcNow,
@@ -431,8 +432,8 @@ namespace CmdNext.Service.Services
             if (request.Body != null) entry.Body = request.Body;
             if (request.FieldsJson != null) entry.FieldsJson = ValidateJson(request.FieldsJson, "fields");
             if (request.Tags != null) entry.Tags = NormalizeTags(request.Tags);
-            if (request.OccurredOn.HasValue) entry.OccurredOn = request.OccurredOn;
-            if (request.DueOn.HasValue) entry.DueOn = request.DueOn;
+            if (request.OccurredOn.HasValue) entry.OccurredOn = NormalizeDate(request.OccurredOn);
+            if (request.DueOn.HasValue) entry.DueOn = NormalizeDate(request.DueOn);
             if (request.Status != null) entry.Status = string.IsNullOrWhiteSpace(request.Status) ? null : request.Status.Trim();
             if (request.NodeIdSet)
             {
@@ -525,8 +526,8 @@ namespace CmdNext.Service.Services
             {
                 foreach (var tag in request.Tags) q = q.Where(e => e.Tags.Contains(tag));
             }
-            if (request.From is { } from) q = q.Where(e => e.OccurredOn != null && e.OccurredOn >= from);
-            if (request.To is { } to) q = q.Where(e => e.OccurredOn != null && e.OccurredOn < to);
+            if (NormalizeDate(request.From) is { } from) q = q.Where(e => e.OccurredOn != null && e.OccurredOn >= from);
+            if (NormalizeDate(request.To) is { } to) q = q.Where(e => e.OccurredOn != null && e.OccurredOn < to);
 
             var term = request.Query?.Trim();
             if (string.IsNullOrWhiteSpace(term))
@@ -881,6 +882,24 @@ namespace CmdNext.Service.Services
             }
 
             return JsonSerializer.Serialize(types, SchemaJsonOptions);
+        }
+
+        /// <summary>
+        /// The columns are `timestamptz`, and Npgsql rejects a DateTime with Kind=Unspecified —
+        /// which is exactly what a date-only value like "2026-09-08" from the client's
+        /// &lt;input type="date"&gt; deserializes to. These are calendar dates, so pin them to
+        /// midnight UTC rather than shifting them by the server's offset (which could move the
+        /// entry to the previous day).
+        /// </summary>
+        private static DateTime? NormalizeDate(DateTime? value)
+        {
+            if (value is not { } dt) return null;
+            return dt.Kind switch
+            {
+                DateTimeKind.Utc => dt,
+                DateTimeKind.Local => dt.ToUniversalTime(),
+                _ => DateTime.SpecifyKind(dt, DateTimeKind.Utc)
+            };
         }
 
         private static string ValidateJson(string json, string fieldName)
