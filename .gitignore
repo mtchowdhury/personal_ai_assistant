@@ -23,3 +23,8 @@ src/cmdnext.Api/storage/
 
 ## Container env — real secrets, never commit
 .env
+
+# Database dumps and generated import scripts stay out of the repo:
+# they are large and can contain personal data.
+*.dump
+dtasks_import.sql
