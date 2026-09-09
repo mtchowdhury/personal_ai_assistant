@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/api/api_exception.dart';
@@ -78,14 +79,28 @@ class _TodayBody extends ConsumerWidget {
           title: const Text('Today'),
           actions: [
             IconButton(
-              onPressed: () => ref.invalidate(todayProvider),
-              icon: const Icon(Icons.refresh_rounded),
-              tooltip: 'Refresh',
+              onPressed: () => context.push('/tasks/calendar'),
+              icon: const Icon(Icons.calendar_month_rounded),
+              tooltip: 'Calendar',
+            ),
+            IconButton(
+              onPressed: () => context.push('/tasks/all'),
+              icon: const Icon(Icons.list_rounded),
+              tooltip: 'All tasks',
             ),
           ],
         ),
 
         SliverToBoxAdapter(child: _DayHeader(dashboard: d)),
+
+        if (d.todayTasks.isNotEmpty)
+          _Section(
+            title: 'Today',
+            count: d.todayCount,
+            accent: AppColors.accent,
+            tasks: d.todayTasks,
+            onToggle: (id) => _toggle(context, ref, id),
+          ),
 
         if (d.overdueTasks.isNotEmpty)
           _Section(
@@ -94,21 +109,6 @@ class _TodayBody extends ConsumerWidget {
             accent: AppColors.red,
             tasks: d.overdueTasks,
             showDate: true,
-            onToggle: (id) => _toggle(context, ref, id),
-            trailingBuilder: (task) => TextButton(
-              onPressed: () => ref
-                  .read(todayProvider.notifier)
-                  .rescheduleToToday(task.id),
-              child: const Text('Today'),
-            ),
-          ),
-
-        if (d.todayTasks.isNotEmpty)
-          _Section(
-            title: 'Scheduled',
-            count: d.todayCount,
-            accent: AppColors.accent,
-            tasks: d.todayTasks,
             onToggle: (id) => _toggle(context, ref, id),
           ),
 
@@ -276,7 +276,7 @@ class _ProgressRing extends StatelessWidget {
 
 /// A titled group of tasks rendered as one card, so the list reads as blocks
 /// rather than an undifferentiated stream.
-class _Section extends StatelessWidget {
+class _Section extends ConsumerWidget {
   const _Section({
     required this.title,
     required this.count,
@@ -284,7 +284,6 @@ class _Section extends StatelessWidget {
     required this.tasks,
     required this.onToggle,
     this.showDate = false,
-    this.trailingBuilder,
   });
 
   final String title;
@@ -293,10 +292,9 @@ class _Section extends StatelessWidget {
   final List<TaskListItem> tasks;
   final void Function(String id) onToggle;
   final bool showDate;
-  final Widget Function(TaskListItem task)? trailingBuilder;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.lg),
@@ -338,25 +336,16 @@ class _Section extends StatelessWidget {
               ),
             ),
             Card(
+              // Clips the swipe backgrounds to the card's rounded corners.
+              clipBehavior: Clip.antiAlias,
               child: Column(
                 children: [
                   for (final (i, task) in tasks.indexed) ...[
                     if (i > 0) const Divider(indent: Gap.lg + 34 + Gap.md),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TaskTile(
-                            task: task,
-                            showDate: showDate,
-                            onToggle: () => onToggle(task.id),
-                          ),
-                        ),
-                        if (trailingBuilder != null && !task.isDone)
-                          Padding(
-                            padding: const EdgeInsets.only(right: Gap.sm),
-                            child: trailingBuilder!(task),
-                          ),
-                      ],
+                    _SwipeableTask(
+                      task: task,
+                      showDate: showDate,
+                      onToggle: () => onToggle(task.id),
                     ),
                   ],
                 ],
@@ -367,4 +356,132 @@ class _Section extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A task row with swipe actions: right to reschedule to today, left to
+/// delete. Both are the gestures a phone makes cheapest, and both are the
+/// things most often done to a stale list.
+class _SwipeableTask extends ConsumerWidget {
+  const _SwipeableTask({
+    required this.task,
+    required this.onToggle,
+    this.showDate = false,
+  });
+
+  final TaskListItem task;
+  final VoidCallback onToggle;
+  final bool showDate;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Dismissible(
+      key: ValueKey(task.id),
+      background: const _SwipeBackground(
+        color: AppColors.accent,
+        icon: Icons.today_rounded,
+        label: 'Today',
+        alignment: Alignment.centerLeft,
+      ),
+      secondaryBackground: const _SwipeBackground(
+        color: AppColors.red,
+        icon: Icons.delete_rounded,
+        label: 'Delete',
+        alignment: Alignment.centerRight,
+      ),
+      // Deleting is destructive, so it asks; rescheduling just happens and is
+      // trivially undone by swiping again.
+      confirmDismiss: (direction) async {
+        if (direction == DismissDirection.startToEnd) {
+          await _reschedule(context, ref);
+          // Returning false keeps the row, which now belongs to Today.
+          return false;
+        }
+        return _confirmDelete(context);
+      },
+      onDismissed: (_) => _delete(context, ref),
+      child: TaskTile(
+        task: task,
+        showDate: showDate,
+        onToggle: onToggle,
+        onTap: () => context.push('/tasks/${task.id}'),
+      ),
+    );
+  }
+
+  Future<void> _reschedule(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(todayProvider.notifier).rescheduleToToday(task.id);
+      if (context.mounted) showAppSnack(context, 'Moved to today');
+    } on ApiException catch (e) {
+      if (context.mounted) showAppSnack(context, e.message, error: true);
+    }
+  }
+
+  Future<bool> _confirmDelete(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete task?'),
+        content: Text(task.title),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(todayProvider.notifier).delete(task.id);
+    } on ApiException catch (e) {
+      if (context.mounted) showAppSnack(context, e.message, error: true);
+      // The row is already gone from the tree; reload to put it back.
+      ref.invalidate(todayProvider);
+    }
+  }
+}
+
+class _SwipeBackground extends StatelessWidget {
+  const _SwipeBackground({
+    required this.color,
+    required this.icon,
+    required this.label,
+    required this.alignment,
+  });
+
+  final Color color;
+  final IconData icon;
+  final String label;
+  final Alignment alignment;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    color: color,
+    alignment: alignment,
+    padding: const EdgeInsets.symmetric(horizontal: Gap.xl),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, color: Colors.white, size: 20),
+        const SizedBox(width: Gap.sm),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+            fontSize: 13,
+          ),
+        ),
+      ],
+    ),
+  );
 }

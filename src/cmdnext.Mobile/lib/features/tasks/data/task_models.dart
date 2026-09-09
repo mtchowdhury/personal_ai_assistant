@@ -2,10 +2,29 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 
-/// Parses the API's DateTime strings. The server sends unzoned local dates for
-/// `scheduledOn`, so these are treated as local — parsing them as UTC would
-/// shift a task across midnight for anyone east or west of the server.
+/// Parses a **calendar date** from the API (`scheduledOn`, `dueOn`).
+///
+/// The server stores these in a `timestamp with time zone` column and stamps
+/// midnight as UTC (`DTaskService.NormalizeDate`), so they arrive as
+/// `2026-09-09T00:00:00Z`. They are dates, not instants: converting to local
+/// time shifts them across midnight and makes a task scheduled for today read
+/// as yesterday from a negative UTC offset. So the date parts are taken
+/// verbatim and the zone is discarded.
 DateTime? parseApiDate(Object? v) {
+  if (v == null) return null;
+  final s = v.toString();
+  if (s.isEmpty) return null;
+  final parsed = DateTime.tryParse(s);
+  if (parsed == null) return null;
+  // `DateTime.parse` on a `Z` string yields a UTC DateTime; read its Y/M/D as
+  // written rather than re-projecting it into the device's zone.
+  final utc = parsed.isUtc ? parsed : parsed.toUtc();
+  return DateTime(utc.year, utc.month, utc.day);
+}
+
+/// Parses a real instant (`createdOn`, `completedOn`), where the timezone does
+/// matter — unlike [parseApiDate], these are points in time, not dates.
+DateTime? parseApiInstant(Object? v) {
   if (v == null) return null;
   final s = v.toString();
   if (s.isEmpty) return null;
@@ -182,7 +201,7 @@ class TaskListItem {
     subtaskCount: (j['subtaskCount'] as num?)?.toInt() ?? 0,
     subtaskDoneCount: (j['subtaskDoneCount'] as num?)?.toInt() ?? 0,
     source: (j['source'] ?? 'manual').toString(),
-    completedOn: parseApiDate(j['completedOn']),
+    completedOn: parseApiInstant(j['completedOn']),
     sortOrder: (j['sortOrder'] as num?)?.toInt() ?? 0,
   );
 
@@ -317,9 +336,9 @@ class TaskDetail {
     tags: ((j['tags'] as List?) ?? const [])
         .map((e) => e.toString())
         .toList(growable: false),
-    completedOn: parseApiDate(j['completedOn']),
+    completedOn: parseApiInstant(j['completedOn']),
     source: (j['source'] ?? 'manual').toString(),
-    createdOn: parseApiDate(j['createdOn']),
+    createdOn: parseApiInstant(j['createdOn']),
     subtasks:
         ((j['subtasks'] as List?) ?? const [])
             .whereType<Map>()

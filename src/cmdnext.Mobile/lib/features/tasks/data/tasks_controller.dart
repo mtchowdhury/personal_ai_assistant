@@ -194,3 +194,56 @@ final taskListProvider = FutureProvider.autoDispose<List<TaskListItem>>((
     topLevelOnly: true,
   );
 });
+
+/// The month the calendar is showing. Held outside the data provider so
+/// swiping months does not rebuild the whole feature.
+class CalendarMonthController extends Notifier<DateTime> {
+  @override
+  DateTime build() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month);
+  }
+
+  void next() => state = DateTime(state.year, state.month + 1);
+  void previous() => state = DateTime(state.year, state.month - 1);
+  void jumpToToday() {
+    final now = DateTime.now();
+    state = DateTime(now.year, now.month);
+  }
+}
+
+final calendarMonthProvider =
+    NotifierProvider<CalendarMonthController, DateTime>(
+      CalendarMonthController.new,
+    );
+
+/// Tasks for the visible month, bucketed by day so the grid can look up a
+/// date in constant time instead of filtering the list per cell.
+final calendarTasksProvider = FutureProvider.autoDispose<
+  Map<DateTime, List<TaskListItem>>
+>((ref) async {
+  final month = ref.watch(calendarMonthProvider);
+  final tasks = await ref
+      .watch(tasksRepositoryProvider)
+      .calendar(year: month.year, month: month.month);
+
+  final byDay = <DateTime, List<TaskListItem>>{};
+  for (final t in tasks) {
+    final d = t.scheduledOn;
+    if (d == null) continue;
+    byDay.putIfAbsent(dateOnly(d), () => []).add(t);
+  }
+  return byDay;
+});
+
+/// The day the calendar has selected, whose tasks are listed under the grid.
+class SelectedDayController extends Notifier<DateTime> {
+  @override
+  DateTime build() => today();
+
+  void select(DateTime day) => state = dateOnly(day);
+}
+
+final selectedDayProvider = NotifierProvider<SelectedDayController, DateTime>(
+  SelectedDayController.new,
+);

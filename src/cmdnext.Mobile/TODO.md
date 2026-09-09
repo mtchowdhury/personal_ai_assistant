@@ -43,6 +43,12 @@ rename or a local dev API does not require a rebuild.
   fields, so entry forms are built at runtime, not compiled in.
 - `Space.SchemaJson` and friends are JSON held in string columns — the API
   writes camelCase into them; parse, don't assume.
+- **Dates are not instants.** `scheduledOn`/`dueOn` are calendar dates, but
+  the column is `timestamp with time zone` and `DTaskService.NormalizeDate`
+  stamps midnight as UTC, so they arrive as `...T00:00:00Z`. Converting them
+  to local time shifts them across midnight — a task scheduled for today
+  reads as yesterday from a negative UTC offset. `parseApiDate` takes the
+  date parts verbatim; `parseApiInstant` is the one that converts.
 
 ## Steps
 
@@ -54,10 +60,9 @@ rename or a local dev API does not require a rebuild.
 - [x] 4. Auth: login screen (with server field), session bootstrap, logout,
       auth-driven routing
 - [x] 5. App shell: bottom tab navigation via `StatefulShellRoute`
-- [~] 6. **Daily Tasks** — Today screen (progress ring, overdue/scheduled
-      sections, optimistic toggle) and quick add are done. Still to do:
-      task detail + edit, the all-tasks list with filters, swipe actions,
-      board and calendar views
+- [~] 6. **Daily Tasks** — Today screen, quick add, task detail + inline edit,
+      subtasks, swipe actions, all-tasks browse with filters, and the month
+      calendar are done. Still to do: the kanban board view
 - [ ] 7. Finance — month dashboard, budget rings, expense list, receipt capture
 - [ ] 8. AI Chat — SSE streaming, session list
 - [ ] 9. Spaces — dynamic schema-driven entries, search

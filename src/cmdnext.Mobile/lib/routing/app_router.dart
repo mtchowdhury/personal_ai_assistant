@@ -9,6 +9,9 @@ import '../features/chat/ui/chat_screen.dart';
 import '../features/finance/ui/finance_screen.dart';
 import '../features/home/ui/home_screen.dart';
 import '../features/spaces/ui/spaces_screen.dart';
+import '../features/tasks/ui/calendar_screen.dart';
+import '../features/tasks/ui/task_detail_screen.dart';
+import '../features/tasks/ui/task_list_screen.dart';
 import '../features/tasks/ui/tasks_screen.dart';
 
 /// Bridges a Riverpod provider to `refreshListenable`, which go_router uses to
@@ -58,6 +61,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/login',
         builder: (_, _) => const LoginScreen(),
       ),
+      GoRoute(
+        path: '/tasks/:id',
+        parentNavigatorKey: _rootKey,
+        builder: (_, state) =>
+            TaskDetailScreen(taskId: state.pathParameters['id']!),
+      ),
       ShellRoute(
         navigatorKey: _shellKey,
         builder: (context, state, child) =>
@@ -66,6 +75,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/tasks',
             builder: (_, _) => const TasksScreen(),
+            routes: [
+              // Nested so the tab bar stays visible and the tab stays selected.
+              GoRoute(
+                path: 'calendar',
+                builder: (_, _) => const CalendarScreen(),
+              ),
+              GoRoute(
+                path: 'all',
+                builder: (_, _) => const TaskListScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/finance',

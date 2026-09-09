@@ -66,6 +66,17 @@ class TasksRepository {
         .toList(growable: false);
   }
 
+  /// Tasks for one month. The server widens the window by a week on each side
+  /// so the grid's leading and trailing days are populated too.
+  Future<List<TaskListItem>> calendar({
+    required int year,
+    required int month,
+    bool includeDone = true,
+  }) async => (await _api.getList(
+    'dtasks/calendar',
+    query: {'year': year, 'month': month, 'includeDone': includeDone},
+  )).map(TaskListItem.fromJson).toList(growable: false);
+
   Future<TaskDetail> get(String id) async =>
       TaskDetail.fromJson(await _api.getObject('dtasks/$id'));
 
