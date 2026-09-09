@@ -247,3 +247,66 @@ class SelectedDayController extends Notifier<DateTime> {
 final selectedDayProvider = NotifierProvider<SelectedDayController, DateTime>(
   SelectedDayController.new,
 );
+
+/// The kanban board. Auto-disposed so the columns are refetched on entry
+/// rather than shown stale after edits made elsewhere.
+class BoardController extends AsyncNotifier<List<TaskBoardColumn>> {
+  @override
+  Future<List<TaskBoardColumn>> build() =>
+      ref.watch(tasksRepositoryProvider).board();
+
+  Future<void> refresh() async {
+    state = AsyncData(await ref.read(tasksRepositoryProvider).board());
+  }
+
+  /// Moves a task into another status column, applying the change locally
+  /// first so the card lands under the finger without a round-trip wait.
+  Future<void> moveTo(String taskId, String statusId) async {
+    final current = state.value;
+    if (current == null) return;
+
+    final targetIndex = current.indexWhere((c) => c.statusId == statusId);
+    if (targetIndex < 0) return;
+    final target = current[targetIndex];
+
+    // Find the card before rebuilding, so the rebuild stays a plain map.
+    TaskListItem? moving;
+    for (final col in current) {
+      for (final t in col.tasks) {
+        if (t.id == taskId) moving = t;
+      }
+    }
+    if (moving == null || moving.statusId == statusId) return;
+
+    final landed = moving.copyWith(
+      statusId: target.statusId,
+      statusName: target.statusName,
+      statusColor: target.statusColor,
+      isDone: target.isDone,
+    );
+
+    state = AsyncData([
+      for (final col in current)
+        col.withTasks(
+          col.statusId == statusId
+              // Newest at the top of the destination column.
+              ? [landed, ...col.tasks.where((t) => t.id != taskId)]
+              : col.tasks.where((t) => t.id != taskId).toList(),
+        ),
+    ]);
+
+    try {
+      await ref.read(tasksRepositoryProvider).move(taskId, statusId: statusId);
+      // The done flag may have flipped, so Today's counters are now stale.
+      ref.invalidate(todayProvider);
+    } catch (_) {
+      state = AsyncData(current);
+      rethrow;
+    }
+  }
+}
+
+final boardProvider = AsyncNotifierProvider.autoDispose<
+  BoardController,
+  List<TaskBoardColumn>
+>(BoardController.new);

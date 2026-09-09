@@ -391,3 +391,48 @@ class TaskDashboard {
     overdueTasks: _list(j['overdue']),
   );
 }
+
+/// One column of the kanban board — a status plus the tasks sitting in it.
+/// The server returns every status, empty ones included, so a task can always
+/// be moved into any column.
+class TaskBoardColumn {
+  const TaskBoardColumn({
+    required this.statusId,
+    required this.statusName,
+    required this.isDone,
+    required this.sortOrder,
+    required this.tasks,
+    this.statusColor,
+  });
+
+  final String statusId;
+  final String statusName;
+  final String? statusColor;
+  final bool isDone;
+  final int sortOrder;
+  final List<TaskListItem> tasks;
+
+  Color get displayColor => AppColors.parse(statusColor);
+
+  /// Same column, different tasks — used when a card is moved optimistically.
+  TaskBoardColumn withTasks(List<TaskListItem> next) => TaskBoardColumn(
+    statusId: statusId,
+    statusName: statusName,
+    statusColor: statusColor,
+    isDone: isDone,
+    sortOrder: sortOrder,
+    tasks: next,
+  );
+
+  factory TaskBoardColumn.fromJson(Map<String, dynamic> j) => TaskBoardColumn(
+    statusId: (j['statusId'] ?? '').toString(),
+    statusName: (j['statusName'] ?? '').toString(),
+    statusColor: j['statusColor'] as String?,
+    isDone: j['isDone'] == true,
+    sortOrder: (j['sortOrder'] as num?)?.toInt() ?? 0,
+    tasks: ((j['tasks'] as List?) ?? const [])
+        .whereType<Map>()
+        .map((e) => TaskListItem.fromJson(e.cast<String, dynamic>()))
+        .toList(growable: false),
+  );
+}

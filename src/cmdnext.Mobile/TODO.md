@@ -60,9 +60,9 @@ rename or a local dev API does not require a rebuild.
 - [x] 4. Auth: login screen (with server field), session bootstrap, logout,
       auth-driven routing
 - [x] 5. App shell: bottom tab navigation via `StatefulShellRoute`
-- [~] 6. **Daily Tasks** — Today screen, quick add, task detail + inline edit,
-      subtasks, swipe actions, all-tasks browse with filters, and the month
-      calendar are done. Still to do: the kanban board view
+- [x] 6. **Daily Tasks** — Today screen, quick add, task detail + inline edit,
+      subtasks, swipe actions, all-tasks browse with filters, month calendar,
+      and the board (one column at a time; move via a picker, not a drag)
 - [ ] 7. Finance — month dashboard, budget rings, expense list, receipt capture
 - [ ] 8. AI Chat — SSE streaming, session list
 - [ ] 9. Spaces — dynamic schema-driven entries, search

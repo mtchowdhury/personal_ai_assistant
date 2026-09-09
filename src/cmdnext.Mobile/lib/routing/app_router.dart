@@ -9,6 +9,7 @@ import '../features/chat/ui/chat_screen.dart';
 import '../features/finance/ui/finance_screen.dart';
 import '../features/home/ui/home_screen.dart';
 import '../features/spaces/ui/spaces_screen.dart';
+import '../features/tasks/ui/board_screen.dart';
 import '../features/tasks/ui/calendar_screen.dart';
 import '../features/tasks/ui/task_detail_screen.dart';
 import '../features/tasks/ui/task_list_screen.dart';
@@ -84,6 +85,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'all',
                 builder: (_, _) => const TaskListScreen(),
+              ),
+              GoRoute(
+                path: 'board',
+                builder: (_, _) => const BoardScreen(),
               ),
             ],
           ),

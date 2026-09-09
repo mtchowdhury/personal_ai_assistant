@@ -77,6 +77,23 @@ class TasksRepository {
     query: {'year': year, 'month': month, 'includeDone': includeDone},
   )).map(TaskListItem.fromJson).toList(growable: false);
 
+  /// The kanban board: one column per status.
+  Future<List<TaskBoardColumn>> board({
+    List<String>? tags,
+    String? priority,
+    String? search,
+    bool topLevelOnly = true,
+  }) async => (await _api.getList(
+    'dtasks/board',
+    query: {
+      'topLevelOnly': topLevelOnly,
+      if (tags != null && tags.isNotEmpty) 'tag': tags,
+      if (priority != null) 'priority': priority,
+      if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
+    },
+  )).map(TaskBoardColumn.fromJson).toList(growable: false)
+    ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+
   Future<TaskDetail> get(String id) async =>
       TaskDetail.fromJson(await _api.getObject('dtasks/$id'));
 

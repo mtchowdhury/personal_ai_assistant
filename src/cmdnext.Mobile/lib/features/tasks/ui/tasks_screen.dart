@@ -83,10 +83,29 @@ class _TodayBody extends ConsumerWidget {
               icon: const Icon(Icons.calendar_month_rounded),
               tooltip: 'Calendar',
             ),
-            IconButton(
-              onPressed: () => context.push('/tasks/all'),
-              icon: const Icon(Icons.list_rounded),
-              tooltip: 'All tasks',
+            PopupMenuButton<String>(
+              tooltip: 'More views',
+              onSelected: (v) => context.push('/tasks/$v'),
+              itemBuilder: (_) => const [
+                PopupMenuItem(
+                  value: 'all',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.list_rounded),
+                    title: Text('All tasks'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'board',
+                  child: ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(Icons.view_kanban_outlined),
+                    title: Text('Board'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
