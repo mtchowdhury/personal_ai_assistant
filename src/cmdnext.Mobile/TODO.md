@@ -48,14 +48,16 @@ rename or a local dev API does not require a rebuild.
 
 - [x] 0. Explore the API and web client; pin versions; upgrade Flutter
 - [x] 1. Scaffold `src/cmdnext.Mobile`, add dependencies
-- [ ] 2. iOS config: bundle id, display name, ATS exception, deployment target
-- [ ] 3. Foundation: theme/design tokens, Dio client + auth interceptor,
+- [x] 2. iOS config: bundle id, display name, ATS exception, deployment target
+- [x] 3. Foundation: theme/design tokens, Dio client + auth interceptor,
       secure token store, editable server setting, error mapping
-- [ ] 4. Auth: login screen (with server field), session bootstrap, logout,
+- [x] 4. Auth: login screen (with server field), session bootstrap, logout,
       auth-driven routing
-- [ ] 5. App shell: bottom tab navigation via `StatefulShellRoute`
-- [ ] 6. **Daily Tasks** — today/overdue focus, quick add, swipe to complete,
-      board and calendar as secondary views
+- [x] 5. App shell: bottom tab navigation via `StatefulShellRoute`
+- [~] 6. **Daily Tasks** — Today screen (progress ring, overdue/scheduled
+      sections, optimistic toggle) and quick add are done. Still to do:
+      task detail + edit, the all-tasks list with filters, swipe actions,
+      board and calendar views
 - [ ] 7. Finance — month dashboard, budget rings, expense list, receipt capture
 - [ ] 8. AI Chat — SSE streaming, session list
 - [ ] 9. Spaces — dynamic schema-driven entries, search
