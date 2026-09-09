@@ -6,6 +6,7 @@ import '../core/auth/auth_controller.dart';
 import '../core/auth/login_screen.dart';
 import '../core/theme/app_theme.dart';
 import '../features/chat/ui/chat_screen.dart';
+import '../features/chat/ui/conversation_screen.dart';
 import '../features/finance/ui/budgets_screen.dart';
 import '../features/finance/ui/expense_detail_screen.dart';
 import '../features/finance/ui/expense_list_screen.dart';
@@ -120,6 +121,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/chat',
             builder: (_, _) => const ChatScreen(),
+            routes: [
+              GoRoute(
+                path: ':id',
+                builder: (_, state) =>
+                    ConversationScreen(sessionId: state.pathParameters['id']!),
+              ),
+            ],
           ),
           GoRoute(
             path: '/spaces',

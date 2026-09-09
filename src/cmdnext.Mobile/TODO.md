@@ -69,7 +69,8 @@ rename or a local dev API does not require a rebuild.
       and the board (one column at a time; move via a picker, not a drag)
 - [x] 7. Finance — month dashboard with budget ring and category bars,
       expense list grouped by day, expense detail, budgets, receipt capture
-- [ ] 8. AI Chat — SSE streaming, session list
+- [x] 8. AI Chat — session list, streaming conversation, stop mid-reply,
+      rename, compact history
 - [ ] 9. Spaces — dynamic schema-driven entries, search
 - [ ] 10. Dashboard/home — cross-feature summary
 - [ ] 11. Polish: offline/empty/error states, pull-to-refresh, haptics, icon
