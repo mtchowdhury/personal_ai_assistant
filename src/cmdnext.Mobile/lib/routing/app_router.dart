@@ -6,6 +6,9 @@ import '../core/auth/auth_controller.dart';
 import '../core/auth/login_screen.dart';
 import '../core/theme/app_theme.dart';
 import '../features/chat/ui/chat_screen.dart';
+import '../features/finance/ui/budgets_screen.dart';
+import '../features/finance/ui/expense_detail_screen.dart';
+import '../features/finance/ui/expense_list_screen.dart';
 import '../features/finance/ui/finance_screen.dart';
 import '../features/home/ui/home_screen.dart';
 import '../features/spaces/ui/spaces_screen.dart';
@@ -95,6 +98,24 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/finance',
             builder: (_, _) => const FinanceScreen(),
+            routes: [
+              GoRoute(
+                path: 'expenses',
+                builder: (_, _) => const ExpenseListScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    builder: (_, state) => ExpenseDetailScreen(
+                      expenseId: state.pathParameters['id']!,
+                    ),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'budgets',
+                builder: (_, _) => const BudgetsScreen(),
+              ),
+            ],
           ),
           GoRoute(
             path: '/chat',

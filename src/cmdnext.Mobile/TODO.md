@@ -15,6 +15,7 @@ Flutter iOS app replacing the web client on mobile. iOS first, Android later
 | dio | 5.11.1 | SSE needs `ResponseType.stream` |
 | flutter_secure_storage | 11.0.0 | JWT lives here, not in prefs |
 | intl | 0.20.3 | Dates and currency |
+| image_picker | 1.2.3 | Receipt camera/gallery capture |
 
 ## Server
 
@@ -43,6 +44,9 @@ rename or a local dev API does not require a rebuild.
   fields, so entry forms are built at runtime, not compiled in.
 - `Space.SchemaJson` and friends are JSON held in string columns — the API
   writes camelCase into them; parse, don't assume.
+- **Finance dates *are* instants**, unlike task dates: `FinanceService` calls
+  `.ToUniversalTime()` on `purchasedOn` and keeps the time of day, so local
+  conversion is correct there. Check the service before assuming either way.
 - **Dates are not instants.** `scheduledOn`/`dueOn` are calendar dates, but
   the column is `timestamp with time zone` and `DTaskService.NormalizeDate`
   stamps midnight as UTC, so they arrive as `...T00:00:00Z`. Converting them
@@ -63,7 +67,8 @@ rename or a local dev API does not require a rebuild.
 - [x] 6. **Daily Tasks** — Today screen, quick add, task detail + inline edit,
       subtasks, swipe actions, all-tasks browse with filters, month calendar,
       and the board (one column at a time; move via a picker, not a drag)
-- [ ] 7. Finance — month dashboard, budget rings, expense list, receipt capture
+- [x] 7. Finance — month dashboard with budget ring and category bars,
+      expense list grouped by day, expense detail, budgets, receipt capture
 - [ ] 8. AI Chat — SSE streaming, session list
 - [ ] 9. Spaces — dynamic schema-driven entries, search
 - [ ] 10. Dashboard/home — cross-feature summary

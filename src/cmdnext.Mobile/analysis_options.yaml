@@ -5,3 +5,11 @@ analyzer:
     - build/**
     - android/**
     - ios/**
+
+linter:
+  rules:
+    # The API distinguishes "field omitted" from "field null" — a request body
+    # must not carry a key at all unless it has a value, or a partial update
+    # would clear fields it never meant to touch. `if (x != null) 'k': x` says
+    # that; the null-aware `?'k': x` reads as if the key is always present.
+    use_null_aware_elements: false
