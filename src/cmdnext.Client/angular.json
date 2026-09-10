@@ -29,6 +29,14 @@
               "lottie-web"
             ],
             "assets": [
+              "src/manifest.webmanifest",
+              "src/icon-512.png",
+              "src/icon-192.png",
+              "src/apple-touch-icon.png",
+              "src/favicon-48x48.png",
+              "src/favicon-32x32.png",
+              "src/favicon-16x16.png",
+              "src/favicon.ico",
               {
                 "glob": "**/*",
                 "input": "src/assets",
@@ -92,6 +100,14 @@
             "tsConfig": "tsconfig.spec.json",
             "inlineStyleLanguage": "scss",
             "assets": [
+              "src/manifest.webmanifest",
+              "src/icon-512.png",
+              "src/icon-192.png",
+              "src/apple-touch-icon.png",
+              "src/favicon-48x48.png",
+              "src/favicon-32x32.png",
+              "src/favicon-16x16.png",
+              "src/favicon.ico",
               {
                 "glob": "**/*",
                 "input": "src/assets"
