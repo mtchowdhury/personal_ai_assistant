@@ -71,7 +71,11 @@ rename or a local dev API does not require a rebuild.
       expense list grouped by day, expense detail, budgets, receipt capture
 - [x] 8. AI Chat — session list, streaming conversation, stop mid-reply,
       rename, compact history
-- [ ] 9. Spaces — dynamic schema-driven entries, search
+- [x] 9. Spaces — timeline-first space view with a node filter strip,
+      schema-driven create/edit form (proper controls per field type: text,
+      number, date picker, select chips, tag chips), entry detail, and
+      cross-space hybrid search. Node management (create/edit nodes, edit a
+      space's schema) intentionally left to the web app.
 - [ ] 10. Dashboard/home — cross-feature summary
 - [ ] 11. Polish: offline/empty/error states, pull-to-refresh, haptics, icon
 - [ ] 12. Android pass (later)

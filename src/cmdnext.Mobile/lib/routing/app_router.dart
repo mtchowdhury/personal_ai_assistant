@@ -12,6 +12,9 @@ import '../features/finance/ui/expense_detail_screen.dart';
 import '../features/finance/ui/expense_list_screen.dart';
 import '../features/finance/ui/finance_screen.dart';
 import '../features/home/ui/home_screen.dart';
+import '../features/spaces/ui/entry_detail_screen.dart';
+import '../features/spaces/ui/space_detail_screen.dart';
+import '../features/spaces/ui/space_search_screen.dart';
 import '../features/spaces/ui/spaces_screen.dart';
 import '../features/tasks/ui/board_screen.dart';
 import '../features/tasks/ui/calendar_screen.dart';
@@ -132,6 +135,26 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/spaces',
             builder: (_, _) => const SpacesScreen(),
+            routes: [
+              GoRoute(
+                path: 'search',
+                builder: (_, _) => const SpaceSearchScreen(),
+              ),
+              GoRoute(
+                path: ':id',
+                builder: (_, state) =>
+                    SpaceDetailScreen(spaceId: state.pathParameters['id']!),
+                routes: [
+                  GoRoute(
+                    path: 'entries/:entryId',
+                    builder: (_, state) => EntryDetailScreen(
+                      spaceId: state.pathParameters['id']!,
+                      entryId: state.pathParameters['entryId']!,
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
           GoRoute(
             path: '/home',
