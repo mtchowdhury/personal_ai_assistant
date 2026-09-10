@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/api/api_exception.dart';
 import '../../../core/theme/app_theme.dart';
@@ -22,12 +23,81 @@ class ConversationScreen extends ConsumerStatefulWidget {
 class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   final _input = TextEditingController();
   final _scroll = ScrollController();
+  final _pending = <PendingAttachment>[];
+
+  /// The Finance receipt flow caps this the same way: the server rejects
+  /// uploads over 10 MB, and a full-resolution photo can exceed that on its
+  /// own — so every picked image is downscaled and re-encoded before it ever
+  /// leaves the device. This also makes HEIC a non-issue: `image_picker`
+  /// always emits real JPEG bytes when `imageQuality` is set, regardless of
+  /// the source format, so a photo shot straight off the camera never reaches
+  /// the server as HEIC — which `AiAttachmentHelper` does not recognise and
+  /// would otherwise reject outright.
+  static const _maxDimension = 1568.0; // matches typical vision-model tiling
+  static const _jpegQuality = 82;
 
   @override
   void dispose() {
     _input.dispose();
     _scroll.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: _maxDimension,
+        maxHeight: _maxDimension,
+        imageQuality: _jpegQuality,
+      );
+      if (picked == null) return;
+
+      final bytes = await picked.readAsBytes();
+      // Force a .jpg name to match what image_picker actually encoded, in
+      // case a gallery pick's original filename still says .heic — the
+      // server picks its MIME type from this extension, not the bytes.
+      final name = picked.name.toLowerCase().endsWith('.jpg')
+          ? picked.name
+          : '${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      setState(() => _pending.add(PendingAttachment(fileName: name, bytes: bytes)));
+    } catch (_) {
+      if (mounted) {
+        showAppSnack(context, 'Could not open that image.', error: true);
+      }
+    }
+  }
+
+  void _removePending(int index) => setState(() => _pending.removeAt(index));
+
+  void _showAttachSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take photo'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from library'),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Keeps the newest text in view as it streams. Jumps rather than animates
@@ -51,11 +121,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
   Future<void> _send() async {
     final text = _input.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && _pending.isEmpty) return;
+
+    final attachments = List<PendingAttachment>.of(_pending);
     _input.clear();
-    setState(() {});
+    setState(() => _pending.clear());
     _scrollToEnd(animate: true);
-    await ref.read(chatProvider(widget.sessionId).notifier).send(text);
+    await ref
+        .read(chatProvider(widget.sessionId).notifier)
+        .send(text, attachments: attachments);
   }
 
   @override
@@ -150,6 +224,9 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
           _Composer(
             controller: _input,
             streaming: streaming,
+            pending: _pending,
+            onAttach: _showAttachSheet,
+            onRemovePending: _removePending,
             onSend: _send,
             onStop: () =>
                 ref.read(chatProvider(widget.sessionId).notifier).stop(),
@@ -286,9 +363,36 @@ class _Bubble extends StatelessWidget {
                   bottomRight: Radius.circular(isUser ? 4 : Radii.card),
                 ),
               ),
-              child: text.isEmpty && streaming
-                  ? const _Typing()
-                  : SelectableText(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (message.localImages.isNotEmpty) ...[
+                    Wrap(
+                      spacing: Gap.sm,
+                      runSpacing: Gap.sm,
+                      children: [
+                        for (final img in message.localImages)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(
+                              Radii.card - 4,
+                            ),
+                            child: Image.memory(
+                              img.bytes,
+                              width: 140,
+                              height: 140,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                      ],
+                    ),
+                    if (text.isNotEmpty || streaming)
+                      const SizedBox(height: Gap.sm),
+                  ],
+                  if (text.isEmpty && streaming)
+                    const _Typing()
+                  else if (text.isNotEmpty)
+                    SelectableText(
                       text,
                       style: TextStyle(
                         fontSize: 15,
@@ -300,6 +404,8 @@ class _Bubble extends StatelessWidget {
                             : scheme.onSurface,
                       ),
                     ),
+                ],
+              ),
             ),
           ),
         ],
@@ -390,6 +496,9 @@ class _Composer extends StatelessWidget {
   const _Composer({
     required this.controller,
     required this.streaming,
+    required this.pending,
+    required this.onAttach,
+    required this.onRemovePending,
     required this.onSend,
     required this.onStop,
     required this.onChanged,
@@ -397,6 +506,9 @@ class _Composer extends StatelessWidget {
 
   final TextEditingController controller;
   final bool streaming;
+  final List<PendingAttachment> pending;
+  final VoidCallback onAttach;
+  final void Function(int index) onRemovePending;
   final VoidCallback onSend;
   final VoidCallback onStop;
   final VoidCallback onChanged;
@@ -404,17 +516,41 @@ class _Composer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final canSend = controller.text.trim().isNotEmpty && !streaming;
+    // A message with images and no text is valid — "what's this?" needs no
+    // words when the photo says it.
+    final canSend =
+        (controller.text.trim().isNotEmpty || pending.isNotEmpty) &&
+        !streaming;
 
     return SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(Gap.md, Gap.sm, Gap.md, Gap.sm),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: TextField(
+            if (pending.isNotEmpty) ...[
+              _PendingImageStrip(images: pending, onRemove: onRemovePending),
+              const SizedBox(height: Gap.sm),
+            ],
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                // Disabled mid-stream: attaching to a reply already in
+                // flight has nowhere to go until it finishes.
+                IconButton(
+                  onPressed: streaming
+                      ? null
+                      : () {
+                          HapticFeedback.lightImpact();
+                          onAttach();
+                        },
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  tooltip: 'Attach a photo',
+                  color: scheme.onSurfaceVariant,
+                ),
+                Expanded(
+                  child: TextField(
                 controller: controller,
                 onChanged: (_) => onChanged(),
                 textCapitalization: TextCapitalization.sentences,
@@ -481,6 +617,64 @@ class _Composer extends StatelessWidget {
                         : canSend
                         ? Colors.white
                         : scheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A horizontal strip of thumbnails for images staged but not yet sent, each
+/// with a small remove button — mirrors how the Finance receipt picker shows
+/// a single staged photo, scaled up for more than one.
+class _PendingImageStrip extends StatelessWidget {
+  const _PendingImageStrip({required this.images, required this.onRemove});
+
+  final List<PendingAttachment> images;
+  final void Function(int index) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 64,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: images.length,
+        separatorBuilder: (_, _) => const SizedBox(width: Gap.sm),
+        itemBuilder: (context, i) => Stack(
+          clipBehavior: Clip.none,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(Radii.card - 2),
+              child: Image.memory(
+                images[i].bytes,
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+              ),
+            ),
+            Positioned(
+              top: -6,
+              right: -6,
+              child: GestureDetector(
+                onTap: () => onRemove(i),
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: const BoxDecoration(
+                    color: Colors.black87,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    size: 14,
+                    color: Colors.white,
                   ),
                 ),
               ),

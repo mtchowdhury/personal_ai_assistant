@@ -66,7 +66,7 @@ class _Body extends ConsumerWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       slivers: [
         SliverAppBar.large(
-          title: const Text('Money'),
+          title: const Text('Finance'),
           actions: [
             IconButton(
               tooltip: 'Budgets',

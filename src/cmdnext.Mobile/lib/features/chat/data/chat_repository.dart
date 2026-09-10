@@ -52,13 +52,18 @@ class ChatRepository {
   Stream<ChatStreamEvent> streamMessage({
     required String sessionId,
     required String message,
+    List<PendingAttachment> attachments = const [],
     CancelToken? cancelToken,
   }) async* {
     late final Response<ResponseBody> response;
     try {
       response = await _api.raw.post<ResponseBody>(
         'ai/sessions/$sessionId/messages/stream',
-        data: {'message': message},
+        data: {
+          'message': message,
+          if (attachments.isNotEmpty)
+            'attachments': [for (final a in attachments) a.toJson()],
+        },
         cancelToken: cancelToken,
         options: Options(
           responseType: ResponseType.stream,

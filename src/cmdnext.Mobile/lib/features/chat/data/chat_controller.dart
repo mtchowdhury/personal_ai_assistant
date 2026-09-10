@@ -69,11 +69,19 @@ class ChatController extends AsyncNotifier<ChatState> {
   ///
   /// The user's line and an empty assistant bubble are appended immediately so
   /// the conversation moves the instant Send is tapped; the bubble then fills
-  /// as deltas arrive.
-  Future<void> send(String text) async {
+  /// as deltas arrive. A message with no text but at least one image is
+  /// allowed — "what's this?" plus a photo needs no words at all.
+  Future<void> send(
+    String text, {
+    List<PendingAttachment> attachments = const [],
+  }) async {
     final trimmed = text.trim();
     final current = state.value;
-    if (trimmed.isEmpty || current == null || current.streaming) return;
+    if ((trimmed.isEmpty && attachments.isEmpty) ||
+        current == null ||
+        current.streaming) {
+      return;
+    }
 
     final nextSequence = current.messages.isEmpty
         ? 0
@@ -83,6 +91,7 @@ class ChatController extends AsyncNotifier<ChatState> {
       role: 'user',
       content: trimmed,
       sequence: nextSequence,
+      localImages: attachments,
     );
     var assistant = ChatMessage.local(
       role: 'assistant',
@@ -129,6 +138,7 @@ class ChatController extends AsyncNotifier<ChatState> {
           .streamMessage(
             sessionId: sessionId,
             message: trimmed,
+            attachments: attachments,
             cancelToken: _cancel,
           );
 

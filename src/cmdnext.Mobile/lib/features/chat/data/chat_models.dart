@@ -1,4 +1,32 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import '../../tasks/data/task_models.dart' show parseApiInstant;
+
+/// An image staged for sending, before the round trip.
+///
+/// `image_picker` always produces real JPEG bytes on iOS regardless of the
+/// source format — HEIC included, since `UIImage`/`UIImageJPEGRepresentation`
+/// re-encodes rather than passing the container through — so `fileName`
+/// always ends up `.jpg` here even for a photo picked straight off the
+/// camera roll. That matters because the server's `AiAttachmentHelper` only
+/// recognises .png/.jpg/.jpeg/.gif/.webp and throws on anything else.
+class PendingAttachment {
+  const PendingAttachment({
+    required this.fileName,
+    required this.bytes,
+  });
+
+  final String fileName;
+  final Uint8List bytes;
+
+  /// What `SendAiChatMessageRequest.Attachments` expects: base64 content
+  /// alongside the file name the server uses to pick a MIME type.
+  Map<String, dynamic> toJson() => {
+    'fileName': fileName,
+    'content': base64Encode(bytes),
+  };
+}
 
 class ChatSession {
   const ChatSession({
@@ -46,6 +74,7 @@ class ChatMessage {
     this.content,
     this.createdOn,
     this.attachments = const [],
+    this.localImages = const [],
     this.finishReason,
     this.inputTokens,
     this.outputTokens,
@@ -58,6 +87,12 @@ class ChatMessage {
   final bool isError;
   final DateTime? createdOn;
   final List<String> attachments;
+
+  /// Raw bytes for a locally-echoed message's images, shown until the reload
+  /// after `done` replaces this message with the server's persisted version.
+  /// The server never returns image bytes in the message list — only
+  /// filenames — so this exists purely for that in-between moment.
+  final List<PendingAttachment> localImages;
   final String? finishReason;
   final int? inputTokens;
   final int? outputTokens;
@@ -91,6 +126,7 @@ class ChatMessage {
     required String content,
     required int sequence,
     bool isError = false,
+    List<PendingAttachment> localImages = const [],
   }) => ChatMessage(
     id: 'local-$role-$sequence',
     role: role,
@@ -98,6 +134,7 @@ class ChatMessage {
     sequence: sequence,
     isError: isError,
     createdOn: DateTime.now(),
+    localImages: localImages,
   );
 
   ChatMessage copyWith({String? content, bool? isError}) => ChatMessage(
@@ -108,6 +145,7 @@ class ChatMessage {
     isError: isError ?? this.isError,
     createdOn: createdOn,
     attachments: attachments,
+    localImages: localImages,
     finishReason: finishReason,
     inputTokens: inputTokens,
     outputTokens: outputTokens,
