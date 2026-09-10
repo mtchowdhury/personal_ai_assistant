@@ -70,7 +70,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const LoginScreen(),
       ),
       GoRoute(
-        path: '/tasks/:id',
+        // Task ids are GUIDs. Without this constraint the pattern also matches
+        // the named views below it — `/tasks/calendar` resolved here first and
+        // opened the detail screen with taskId "calendar", which then fetched
+        // `dtasks/calendar` with no query and got back a 400 about the month.
+        path: r'/tasks/:id('
+            r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-'
+            r'[0-9a-fA-F]{4}-[0-9a-fA-F]{12})',
         parentNavigatorKey: _rootKey,
         builder: (_, state) =>
             TaskDetailScreen(taskId: state.pathParameters['id']!),
@@ -185,7 +191,7 @@ class AppShell extends StatelessWidget {
       path: '/finance',
       icon: Icons.account_balance_wallet_outlined,
       active: Icons.account_balance_wallet_rounded,
-      label: 'Money',
+      label: 'Finance',
     ),
     (
       path: '/chat',

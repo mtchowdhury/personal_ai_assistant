@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
@@ -72,10 +73,14 @@ class TasksRepository {
     required int year,
     required int month,
     bool includeDone = true,
-  }) async => (await _api.getList(
-    'dtasks/calendar',
-    query: {'year': year, 'month': month, 'includeDone': includeDone},
-  )).map(TaskListItem.fromJson).toList(growable: false);
+    CancelToken? cancelToken,
+  }) async {
+    return (await _api.getList(
+      'dtasks/calendar',
+      query: {'year': year, 'month': month, 'includeDone': includeDone},
+      cancelToken: cancelToken,
+    )).map(TaskListItem.fromJson).toList(growable: false);
+  }
 
   /// The kanban board: one column per status.
   Future<List<TaskBoardColumn>> board({

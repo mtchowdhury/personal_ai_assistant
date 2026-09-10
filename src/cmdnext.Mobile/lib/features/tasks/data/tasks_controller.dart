@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'task_models.dart';
@@ -219,13 +220,30 @@ final calendarMonthProvider =
 
 /// Tasks for the visible month, bucketed by day so the grid can look up a
 /// date in constant time instead of filtering the list per cell.
+///
+/// Rapidly tapping the month arrows fires a new request on every rebuild
+/// without cancelling the one before it, so an in-flight request from a month
+/// you've since navigated away from could resolve late and confuse the UI. A
+/// `CancelToken` tied to provider disposal removes that race.
 final calendarTasksProvider = FutureProvider.autoDispose<
   Map<DateTime, List<TaskListItem>>
 >((ref) async {
   final month = ref.watch(calendarMonthProvider);
+  assert(
+    month.month >= 1 && month.month <= 12,
+    'calendarMonthProvider produced an out-of-range month: $month',
+  );
+
+  final cancelToken = CancelToken();
+  ref.onDispose(() => cancelToken.cancel('superseded by a newer month'));
+
   final tasks = await ref
       .watch(tasksRepositoryProvider)
-      .calendar(year: month.year, month: month.month);
+      .calendar(
+        year: month.year,
+        month: month.month,
+        cancelToken: cancelToken,
+      );
 
   final byDay = <DateTime, List<TaskListItem>>{};
   for (final t in tasks) {
