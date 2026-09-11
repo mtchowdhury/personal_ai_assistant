@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:open_filex/open_filex.dart';
@@ -327,24 +326,24 @@ class _BodyState extends ConsumerState<_Body> {
 
   /// Returns the replacement text + caret when Enter should be handled here, or
   /// null to let the field insert a plain newline.
-  ({String text, int caret})? _listContinuation() {
-    final selection = _body.selection;
-    if (!selection.isValid || !selection.isCollapsed) return null;
-
-    final caret = selection.baseOffset;
+  /// [newlineAt] is the index of the newline the user just inserted; the list
+  /// item is the line ending there. Returns the rewritten text and caret, or
+  /// null when that line is not a list item and the newline should stand.
+  ({String text, int caret})? _listContinuation(int newlineAt) {
     final text = _body.text;
     // See _prefixLines: lastIndexOf throws on a negative start index.
-    final lineStart = caret == 0 ? 0 : text.lastIndexOf('\n', caret - 1) + 1;
-    final match = _listLine.firstMatch(text.substring(lineStart, caret));
+    final lineStart =
+        newlineAt == 0 ? 0 : text.lastIndexOf('\n', newlineAt - 1) + 1;
+    final match = _listLine.firstMatch(text.substring(lineStart, newlineAt));
     if (match == null) return null;
 
     final indent = match.group(1)!;
     final content = match.group(6)!;
 
-    // Empty item: strip the marker and end the list.
+    // Empty item: drop the marker and end the list, taking the new line with it.
     if (content.trim().isEmpty) {
       return (
-        text: text.substring(0, lineStart) + text.substring(caret),
+        text: text.substring(0, lineStart) + text.substring(newlineAt + 1),
         caret: lineStart,
       );
     }
@@ -358,10 +357,14 @@ class _BodyState extends ConsumerState<_Body> {
       marker = '${int.parse(match.group(4)!) + 1}${match.group(5)} ';
     }
 
-    final insert = '\n$indent$marker';
+    // The newline is already in the text; only the marker is inserted after it.
+    final insert = '$indent$marker';
+    final caretAfterNewline = newlineAt + 1;
     return (
-      text: text.substring(0, caret) + insert + text.substring(caret),
-      caret: caret + insert.length,
+      text: text.substring(0, caretAfterNewline) +
+          insert +
+          text.substring(caretAfterNewline),
+      caret: caretAfterNewline + insert.length,
     );
   }
 
@@ -401,11 +404,58 @@ class _BodyState extends ConsumerState<_Body> {
   /// keystroke would otherwise setState the whole screen.
   String _taskSignature = '';
 
+  /// Text as of the previous listener call, so a change can be recognised as a
+  /// plain newline insertion (the software keyboard's return key).
+  late String _lastBodyText = widget.entry.body;
+  /// Guards the re-entrant write the continuation makes.
+  bool _continuingList = false;
+
   void _onBodyChanged() {
+    _handleNewline();
+
     final signature = _tasks.map((t) => '${t.line}:${t.checked}').join('|');
     if (signature == _taskSignature) return;
     _taskSignature = signature;
     if (mounted) setState(() {});
+  }
+
+  /// Continues a list when the user hits return.
+  ///
+  /// The iOS software keyboard does not emit a hardware key event, so this is
+  /// detected from the text change itself: exactly one newline inserted at the
+  /// caret. Rewriting the value re-enters this listener, hence the guard.
+  void _handleNewline() {
+    if (_continuingList) return;
+
+    final previous = _lastBodyText;
+    final current = _body.text;
+    _lastBodyText = current;
+
+    if (current.length != previous.length + 1) return;
+
+    final sel = _body.selection;
+    if (!sel.isValid || !sel.isCollapsed) return;
+
+    final caret = sel.baseOffset;
+    // The inserted character sits just before the caret and must be a newline,
+    // and the rest of the text must be unchanged.
+    if (caret <= 0 || caret > current.length) return;
+    if (current[caret - 1] != '\n') return;
+    if (current.substring(0, caret - 1) + current.substring(caret) != previous) {
+      return;
+    }
+
+    // Look at the line the newline was pressed on, i.e. the one before the caret.
+    final next = _listContinuation(caret - 1);
+    if (next == null) return;
+
+    _continuingList = true;
+    _body.value = TextEditingValue(
+      text: next.text,
+      selection: TextSelection.collapsed(offset: next.caret),
+    );
+    _lastBodyText = next.text;
+    _continuingList = false;
   }
 
   @override
@@ -551,34 +601,7 @@ class _BodyState extends ConsumerState<_Body> {
             // makes a tap on the bar count as inside and the field keeps focus.
             child: TapRegion(
             groupId: _bodyTapGroup,
-            // Enter is intercepted before the field sees it so a list item can
-            // continue with the same marker (or end the list when empty).
-            child: CallbackShortcuts(
-              bindings: {
-                const SingleActivator(LogicalKeyboardKey.enter): () {
-                  final next = _listContinuation();
-                  if (next == null) {
-                    // Not in a list — insert the newline the field would have.
-                    final sel = _body.selection;
-                    if (!sel.isValid) return;
-                    final text = _body.text.replaceRange(
-                      sel.start,
-                      sel.end,
-                      '\n',
-                    );
-                    _body.value = TextEditingValue(
-                      text: text,
-                      selection: TextSelection.collapsed(offset: sel.start + 1),
-                    );
-                    return;
-                  }
-                  _body.value = TextEditingValue(
-                    text: next.text,
-                    selection: TextSelection.collapsed(offset: next.caret),
-                  );
-                },
-              },
-              child: TextField(
+            child: TextField(
               controller: _body,
               focusNode: _bodyFocus,
               maxLines: null,
@@ -600,7 +623,6 @@ class _BodyState extends ConsumerState<_Body> {
                   _save(() => controller.save(body: _body.text));
                 }
               },
-              ),
             ),
             ),
           ),
