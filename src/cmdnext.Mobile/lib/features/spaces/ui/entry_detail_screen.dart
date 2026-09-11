@@ -121,10 +121,9 @@ class _BodyState extends ConsumerState<_Body> {
   /// while the body is being edited, not permanently on the screen.
   final _bodyFocus = FocusNode();
 
-  /// Set while a formatting button is being tapped. The body's `onTapOutside`
-  /// unfocuses the field, which would dismiss the keyboard and hide the bar
-  /// the moment a button is pressed; this suppresses that for the tap.
-  bool _formatBarTap = false;
+  /// Groups the body field and its formatting bar into one tap region, so a
+  /// tap on the bar does not read as a tap outside the field.
+  final _bodyTapGroup = Object();
   late final Map<String, Object?> _fieldValues = Map.of(widget.entry.fields);
 
   EntryRef get _ref => (spaceId: widget.spaceId, entryId: widget.entryId);
@@ -253,16 +252,11 @@ class _BodyState extends ConsumerState<_Body> {
     Widget button(String label, VoidCallback onTap, {String? tooltip}) {
       final child = InkWell(
         borderRadius: BorderRadius.circular(8),
-        // onTapDown fires before the field's onTapOutside, so the guard is
-        // already up by the time that runs; it is lowered on the next frame.
-        onTapDown: (_) => _formatBarTap = true,
-        onTapCancel: () => _formatBarTap = false,
         onTap: () {
           onTap();
-          _bodyFocus.requestFocus();
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            _formatBarTap = false;
-          });
+          // The field keeps focus via the TapRegion below, but re-assert it so
+          // the keyboard stays up even if something else claimed focus.
+          if (!_bodyFocus.hasFocus) _bodyFocus.requestFocus();
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -279,7 +273,15 @@ class _BodyState extends ConsumerState<_Body> {
       return tooltip == null ? child : Tooltip(message: tooltip, child: child);
     }
 
-    return Padding(
+    // Same groupId as the body field: TextField.onTapOutside only fires for taps
+    // outside its own tap region, so sharing the group makes a tap on this bar
+    // count as inside — the field keeps focus and the keyboard stays up.
+    // (Setting a flag from onTapDown does not work: onTapOutside fires on
+    // pointer-down, before any tap callback, and once the field unfocuses the
+    // bar is removed from the tree and onTap never arrives.)
+    return TapRegion(
+      groupId: _bodyTapGroup,
+      child: Padding(
       padding: const EdgeInsets.only(top: Gap.sm),
       child: Material(
         color: scheme.surfaceContainerHighest,
@@ -302,6 +304,7 @@ class _BodyState extends ConsumerState<_Body> {
             ],
           ),
         ),
+      ),
       ),
     );
   }
@@ -543,6 +546,11 @@ class _BodyState extends ConsumerState<_Body> {
         Card(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: Gap.md, vertical: Gap.sm),
+            // Same tap group as the formatting bar: TextField.onTapOutside only
+            // fires for taps outside its own tap region, so grouping the two
+            // makes a tap on the bar count as inside and the field keeps focus.
+            child: TapRegion(
+            groupId: _bodyTapGroup,
             // Enter is intercepted before the field sees it so a list item can
             // continue with the same marker (or end the list when empty).
             child: CallbackShortcuts(
@@ -587,15 +595,13 @@ class _BodyState extends ConsumerState<_Body> {
                 contentPadding: const EdgeInsets.symmetric(vertical: Gap.sm),
               ),
               onTapOutside: (_) {
-                // A tap on the formatting bar is not "outside" as far as the
-                // user is concerned — keep the field focused.
-                if (_formatBarTap) return;
                 FocusScope.of(context).unfocus();
                 if (_body.text != entry.body) {
                   _save(() => controller.save(body: _body.text));
                 }
               },
               ),
+            ),
             ),
           ),
         ),
@@ -624,9 +630,14 @@ class _BodyState extends ConsumerState<_Body> {
           ),
         ],
 
-        // Formatting bar: only while the body is focused, so it reads as part
-        // of the keyboard rather than as permanent page furniture.
-        if (_bodyFocus.hasFocus) _buildFormatBar(scheme),
+        // Formatting bar, shown while the body is being edited. Kept in the
+        // tree with Visibility rather than an `if`: removing it mid-gesture
+        // would cancel the tap that is being delivered to it.
+        Visibility(
+          visible: _bodyFocus.hasFocus,
+          maintainState: true,
+          child: _buildFormatBar(scheme),
+        ),
 
         const SizedBox(height: Gap.lg),
         _AttachmentsSection(spaceId: widget.spaceId, entryId: widget.entryId),
