@@ -41,6 +41,8 @@ export class ChatMarkdownPipe implements PipeTransform {
     const html: string[] = [];
     const lists: OpenList[] = [];
     let paragraph: string[] = [];
+    /** Running count of task-list items, used to address each checkbox back to the source. */
+    let taskIndex = 0;
 
     const closeParagraph = () => {
       if (paragraph.length) {
@@ -75,6 +77,29 @@ export class ChatMarkdownPipe implements PipeTransform {
 
       if (!trimmed) {
         closeParagraph();
+        continue;
+      }
+
+      // A collapsible block. Everything is HTML-escaped up front, so these are the escaped
+      // forms; only this exact, attribute-free shape is turned back into real tags, which
+      // keeps arbitrary HTML in imported or AI-written text inert.
+      if (trimmed === '&lt;details&gt;') {
+        closeParagraph();
+        closeAllLists();
+        html.push('<details>');
+        continue;
+      }
+      if (trimmed === '&lt;/details&gt;') {
+        closeParagraph();
+        closeAllLists();
+        html.push('</details>');
+        continue;
+      }
+      const summary = /^&lt;summary&gt;(.*)&lt;\/summary&gt;$/.exec(trimmed);
+      if (summary) {
+        closeParagraph();
+        closeAllLists();
+        html.push(`<summary>${this.renderInline(summary[1])}</summary>`);
         continue;
       }
 
@@ -140,6 +165,25 @@ export class ChatMarkdownPipe implements PipeTransform {
 
           lists.push({ tag, indent, itemOpen: false });
           html.push(`<${tag}>`);
+        }
+
+        // Task list item: "- [ ] text" / "- [x] text". Each checkbox is numbered by its
+        // position among the task items in the body (data-task-index) rather than by line
+        // number: a fenced code block collapses to a single placeholder line before rendering,
+        // so line indices here do not match the original markdown. Counting task items is
+        // stable because the host re-scans the body with the same ordering.
+        // The checkbox is inert on its own — the host component opts in by handling clicks.
+        const task = /^\[([ xX])\]\s+(.*)$/.exec(item[4]);
+        if (task) {
+          const checked = task[1].toLowerCase() === 'x';
+          html.push(
+            `<li class="task-item">` +
+            `<input type="checkbox" class="task-checkbox" data-task-index="${taskIndex++}"` +
+            `${checked ? ' checked' : ''}>` +
+            `<span class="task-text${checked ? ' done' : ''}">${this.renderInline(task[2])}</span>`
+          );
+          lists[lists.length - 1].itemOpen = true;
+          continue;
         }
 
         html.push(`<li>${this.renderInline(item[4])}`);

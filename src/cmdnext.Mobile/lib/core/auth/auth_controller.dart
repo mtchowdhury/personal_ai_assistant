@@ -107,7 +107,14 @@ class AuthController extends Notifier<AuthState> {
     try {
       final json = await ref.read(apiClientProvider).post<Map<String, dynamic>>(
         'auth/login',
-        body: {'email': email.trim(), 'password': password},
+        // `client` asks the API for the mobile token lifetime. There is no
+        // refresh flow, so a short token would mean signing in again every few
+        // hours on a personal phone; the token lives in the device keychain.
+        body: {
+          'email': email.trim(),
+          'password': password,
+          'client': 'mobile',
+        },
       );
       await _persist(AuthResult.fromJson(json));
     } finally {
@@ -134,6 +141,7 @@ class AuthController extends Notifier<AuthState> {
           'password': password,
           'firstName': firstName?.trim(),
           'lastName': lastName?.trim(),
+          'client': 'mobile',
         },
       );
       await _persist(AuthResult.fromJson(json));

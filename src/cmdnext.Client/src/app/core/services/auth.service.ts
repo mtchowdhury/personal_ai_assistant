@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { environment } from '@environments/environment';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
 export interface User {
   id: string;
@@ -39,7 +39,11 @@ export class AuthService {
   private _isAuthenticated = new BehaviorSubject<boolean>(false);
   isAuthenticated$ = this._isAuthenticated.asObservable();
 
-  constructor(private http: HttpClient, private router: Router) {
+  constructor(
+    private http: HttpClient,
+    private router: Router,
+    private route: ActivatedRoute
+  ) {
     this.initialize();
   }
 
@@ -117,6 +121,14 @@ export class AuthService {
     localStorage.setItem(this.expiresKey, expiresAt);
     
     this._isAuthenticated.next(true);
-    this.router.navigate(['/']);
+
+    // Come back to whatever the expired session interrupted, when the interceptor recorded it.
+    // Only same-origin paths are honoured so a crafted returnUrl cannot bounce the user
+    // somewhere unexpected after signing in.
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+    const safe = returnUrl && returnUrl.startsWith('/') && !returnUrl.startsWith('//')
+      && !returnUrl.startsWith('/auth/');
+
+    this.router.navigateByUrl(safe ? returnUrl! : '/');
   }
 }

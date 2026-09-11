@@ -1,9 +1,11 @@
 import { AfterViewChecked, Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Subject, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
-  SpacesService, Space, Node, EntryListItem, EntryTypeSchema, parseEntryTypeSchema
+  SpacesService, Space, Node, EntryListItem, EntryTypeSchema, parseEntryTypeSchema, SearchResult
 } from '@features/application/spaces/services/spaces.service';
 import { NotificationService } from '@core/services/notification.service';
 import { LoadingSpinnerComponent } from '@core/components/loading-spinner/loading-spinner.component';
@@ -32,6 +34,20 @@ export class SpaceDetailComponent implements OnInit, OnDestroy, AfterViewChecked
 
   entries: EntryListItem[] = [];
   entriesLoading = false;
+
+  /**
+   * Inline filter over the space. Typing runs the same ranked search the advanced page uses
+   * (tag matches first, then full text), so a tag name typed here behaves like a tag filter.
+   * `searchTerm` is what's in the box; `searchActive` means the list currently shows results
+   * rather than the node's entries.
+   */
+  @ViewChild('searchInput') searchInput?: ElementRef<HTMLInputElement>;
+  searchTerm = '';
+  searchActive = false;
+  searchLoading = false;
+  private searchInput$ = new Subject<string>();
+  private searchSub?: Subscription;
+
 
   entryTypes: EntryTypeSchema[] = [];
 
@@ -72,12 +88,34 @@ export class SpaceDetailComponent implements OnInit, OnDestroy, AfterViewChecked
   ngOnInit(): void {
     this.spaceId = this.route.snapshot.paramMap.get('id') ?? '';
     this.takeStoredScroll();
+    this.takeStoredSearch();
     this.load();
+
+    // switchMap so a slower earlier request can never overwrite the results of a later
+    // keystroke; debounce keeps a fast typist to one request per pause.
+    this.searchSub = this.searchInput$.pipe(
+      debounceTime(250),
+      distinctUntilChanged(),
+      switchMap((term) => {
+        this.searchLoading = true;
+        return this.runSearch(term);
+      })
+    ).subscribe({
+      next: (results) => {
+        this.entries = results.map(r => this.searchResultToListItem(r));
+        this.searchLoading = false;
+      },
+      error: () => {
+        this.searchLoading = false;
+        this.notification.showError('Search failed.');
+      }
+    });
   }
 
   ngOnDestroy(): void {
     // Navigating away mid-drag would otherwise leave the chip attached to <body>.
     this.removeDragImage();
+    this.searchSub?.unsubscribe();
   }
 
   private load(): void {
@@ -152,12 +190,55 @@ export class SpaceDetailComponent implements OnInit, OnDestroy, AfterViewChecked
     // Switching nodes is a deliberate context change — show the new list from the top.
     this.pendingScrollTop = null;
     if (this.entriesScroll) this.entriesScroll.nativeElement.scrollTop = 0;
+
+    // With a filter active the results are scoped to a node, so changing node has to re-run
+    // the search. Dropping searchActive first lets loadEntries take the restore path, which
+    // reads the new selectedNodeId; leaving it set would return early on stale results.
+    if (this.searchActive) this.searchActive = false;
+
     this.loadEntries();
   }
 
   /** sessionStorage key for the current space + selected node. */
   private scrollKey(): string {
     return `spaces:${this.spaceId}:${this.selectedNodeId ?? 'root'}:scroll`;
+  }
+
+  /**
+   * sessionStorage key for the active filter term. Per space (not per node) so switching
+   * nodes keeps the term, matching how the filter itself behaves.
+   */
+  private searchKey(): string {
+    return `spaces:${this.spaceId}:search`;
+  }
+
+  /**
+   * Parks the filter term for a reload that destroys this component. Opening an entry is a
+   * separate route, so without this, coming back from a result resets the list to everything
+   * and the term has to be retyped to look at the next candidate.
+   */
+  private parkSearchTerm(): void {
+    try {
+      const term = this.searchTerm.trim();
+      if (term) sessionStorage.setItem(this.searchKey(), term);
+      else sessionStorage.removeItem(this.searchKey());
+    } catch {
+      // Private-mode browsers can throw on write; losing the term is not worth failing over.
+    }
+  }
+
+  /**
+   * Picks up a term parked by a previous visit. Unlike the scroll offset this is not consumed
+   * on read — the term stays until it is actually cleared, so repeated trips into results and
+   * back all keep it.
+   */
+  private takeStoredSearch(): void {
+    try {
+      const raw = sessionStorage.getItem(this.searchKey());
+      if (raw) this.searchTerm = raw;
+    } catch {
+      // Nothing stored; start unfiltered.
+    }
   }
 
   /** Holds the offset across an in-place reload; this component stays alive. */
@@ -171,6 +252,10 @@ export class SpaceDetailComponent implements OnInit, OnDestroy, AfterViewChecked
    * separate route, so in-memory state does not survive the trip.
    */
   private parkEntriesScroll(): void {
+    // Both pieces of list state leave together: whatever destroys this component takes the
+    // filter term with it as well as the scroll offset.
+    this.parkSearchTerm();
+
     const el = this.entriesScroll?.nativeElement;
     if (!el) return;
     try {
@@ -209,10 +294,36 @@ export class SpaceDetailComponent implements OnInit, OnDestroy, AfterViewChecked
   }
 
   private loadEntries(): void {
+    // A term restored from a previous visit hasn't run yet — run it instead of loading the
+    // unfiltered list, so coming back from a result lands on the same results.
+    if (!this.searchActive && this.searchTerm.trim()) {
+      const term = this.searchTerm.trim();
+      this.searchActive = true;
+      this.searchLoading = true;
+      // Straight to the request — there is no typing here to debounce.
+      this.runSearch(term).subscribe({
+        next: (results) => {
+          this.entries = results.map(r => this.searchResultToListItem(r));
+          this.searchLoading = false;
+        },
+        error: () => {
+          this.searchLoading = false;
+          this.notification.showError('Search failed.');
+        }
+      });
+      return;
+    }
+
+    // A search in progress owns the list; a background reload would clobber the results.
+    if (this.searchActive) return;
+
     this.entriesLoading = true;
     this.spacesService.getEntries(this.spaceId, {
       nodeId: this.selectedNodeId ?? undefined,
       includeDescendants: true,
+      // Last-modified first: these are reference notes, where OccurredOn is the original
+      // note date and says nothing about what's been touched recently.
+      sort: 'updated',
       take: 200
     }).subscribe({
       next: (entries) => {
@@ -392,6 +503,66 @@ export class SpaceDetailComponent implements OnInit, OnDestroy, AfterViewChecked
       }
       this.nodeLabels.set(node.id, names.join(' / '));
     }
+  }
+
+  // ---- Inline search ----
+
+  /** The search request itself, shared by the debounced pipeline and the restore path. */
+  private runSearch(term: string) {
+    return this.spacesService.search({
+      spaceId: this.spaceId,
+      query: term,
+      nodeId: this.selectedNodeId ?? undefined,
+      includeDescendants: true,
+      mode: 'text',
+      limit: 100
+    });
+  }
+
+  /** Bound to the box's (input) — every keystroke feeds the debounced pipeline. */
+  onSearchInput(): void {
+    const term = this.searchTerm.trim();
+    if (!term) {
+      // Emptying the box returns to the node's own list rather than leaving stale results.
+      this.clearSearch();
+      return;
+    }
+    this.searchActive = true;
+    this.searchInput$.next(term);
+  }
+
+  clearSearch(): void {
+    this.searchTerm = '';
+    this.searchLoading = false;
+    try {
+      sessionStorage.removeItem(this.searchKey());
+    } catch {
+      // Nothing to remove.
+    }
+    if (this.searchActive) {
+      this.searchActive = false;
+      this.loadEntries();
+    } else {
+      this.searchActive = false;
+    }
+  }
+
+  /**
+   * Search returns SearchResultDto (entryId/snippet); the card renders EntryListItem. Map it
+   * so one template handles both list and result modes.
+   */
+  private searchResultToListItem(r: SearchResult): EntryListItem {
+    return {
+      id: r.entryId,
+      nodeId: r.nodeId,
+      nodePath: r.nodePath,
+      type: r.type,
+      title: r.title,
+      excerpt: r.snippet,
+      tags: r.tags ?? [],
+      occurredOn: r.occurredOn,
+      source: 'manual'
+    };
   }
 
   openEntry(entry: EntryListItem): void {

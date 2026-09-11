@@ -64,6 +64,50 @@
 
   textarea { resize: vertical; }
 
+  .format-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 8px;
+    background: #fafafa;
+    border: 1px solid #d0d0d0;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+
+    button {
+      min-width: 30px;
+      height: 28px;
+      padding: 0 7px;
+      border: none;
+      border-radius: 6px;
+      background: none;
+      color: #444;
+      font-size: 13.5px;
+      line-height: 1;
+      cursor: pointer;
+
+      &:hover { background: #e8ecf5; color: #2f6fed; }
+      &:active { background: #dde3f0; }
+      &:focus { outline: none; }
+      &:focus-visible { outline: 2px solid #0078d4; outline-offset: -1px; }
+
+      &.mono { font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 11.5px; }
+    }
+
+    .sep {
+      width: 1px;
+      height: 18px;
+      margin: 0 4px;
+      background: #dcdcdc;
+    }
+  }
+
+  // Square off the top edge so the field reads as one piece with the bar above it.
+  .format-bar + .body-field {
+    border-radius: 0 0 8px 8px;
+  }
+
   .body-field {
     min-height: 200px;
     overflow-y: hidden;
@@ -71,6 +115,37 @@
     font-family: 'SF Mono', Menlo, Consolas, monospace;
     font-size: 13px;
     line-height: 1.6;
+  }
+
+  // Live preview under the editor. Deliberately quiet — it is a reference while typing, not
+  // the primary surface, so it reads as secondary to the field above it.
+  .live-preview {
+    margin-top: 10px;
+    border: 1px dashed #d8d8d8;
+    border-radius: 8px;
+    background: #fcfcfc;
+    padding: 10px 12px;
+
+    .live-preview-label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: #a0a0a0;
+    }
+
+    // Inside the preview box the rendered body needs no chrome of its own.
+    .body-rendered.plain {
+      min-height: 0;
+      padding: 0;
+      border: none;
+      background: none;
+      cursor: default;
+
+      &:hover { border-color: transparent; }
+    }
   }
 
   .body-label-row {
@@ -120,8 +195,61 @@
       ul, ol { margin: 0 0 10px; padding-left: 22px; }
       li { margin: 2px 0; }
 
+      // Task list items ("- [ ] ..."): the marker is the checkbox itself, so drop the bullet
+      // and pull the row back into the space it occupied.
+      li.task-item {
+        list-style: none;
+        margin-left: -22px;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .task-checkbox {
+        flex: 0 0 auto;
+        margin: 3px 0 0;
+        cursor: pointer;
+        accent-color: #2f6fed;
+      }
+
+      .task-text {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow-wrap: anywhere;
+
+        &.done { color: #999; text-decoration: line-through; }
+      }
+
       a { color: #2f6fed; text-decoration: underline; overflow-wrap: anywhere; }
       strong { font-weight: 600; }
+
+      // Collapsed OCR text from an imported attachment: present and searchable, but folded
+      // away so it does not bury the note itself.
+      details {
+        margin: 12px 0 0;
+        border-top: 1px solid #eee;
+        padding-top: 10px;
+
+        summary {
+          cursor: pointer;
+          color: #888;
+          font-size: 12.5px;
+          user-select: none;
+
+          &:hover { color: #2f6fed; }
+          &:focus { outline: none; }
+          &:focus-visible { outline: 2px solid #0078d4; outline-offset: 2px; }
+        }
+
+        p {
+          color: #777;
+          font-size: 13px;
+          white-space: pre-wrap;
+          overflow-wrap: anywhere;
+        }
+
+        &[open] summary { margin-bottom: 8px; }
+      }
 
       code {
         background: #f0f0f0;
@@ -304,6 +432,31 @@
   font-size: 13px;
 
   a { color: #2f6fed; text-decoration: none; }
+
+  // A button, not an anchor: the file is fetched with the auth header and opened as a blob,
+  // so there is no navigable href to hang on an <a>. Styled to read as a link.
+  .attachment-link {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    background: none;
+    padding: 0;
+    text-align: left;
+    color: #2f6fed;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &:hover:not(:disabled) { text-decoration: underline; }
+    &:disabled { color: #999; cursor: default; }
+
+    // The global :focus rule rings on plain mousedown; keep it for keyboard users only.
+    &:focus { outline: none; }
+    &:focus-visible { outline: 2px solid #0078d4; outline-offset: 2px; }
+  }
 }
 
 .empty { color: #999; font-size: 13px; }

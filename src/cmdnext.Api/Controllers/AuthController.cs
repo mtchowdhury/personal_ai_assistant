@@ -59,11 +59,9 @@ namespace CmdNext.Api.Controllers
             _logger.LogInformation("Registration succeeded for {Email} (user {UserId})", user.Email, user.Id);
 
             // Generate JWT token
-            var token = GenerateJwtToken(user);
+            var token = GenerateJwtToken(user, request.Client);
 
-            // Get expiry from JWT settings
-            var jwtSettings = _configuration.GetSection("JwtSettings");
-            var expiryInMinutes = int.Parse(jwtSettings["ExpiryInMinutes"] ?? "240");
+            var expiryInMinutes = ResolveExpiryMinutes(request.Client);
 
             return Ok(new AuthResponse
             {
@@ -109,13 +107,13 @@ namespace CmdNext.Api.Controllers
             }
 
             // Generate JWT token
-            var token = GenerateJwtToken(user);
+            var token = GenerateJwtToken(user, request.Client);
 
-            _logger.LogInformation("Login succeeded for user {UserId} ({Email})", user.Id, user.Email);
+            _logger.LogInformation(
+                "Login succeeded for user {UserId} ({Email}) on client {Client}",
+                user.Id, user.Email, request.Client ?? "web");
 
-            // Get expiry from JWT settings
-            var jwtSettings = _configuration.GetSection("JwtSettings");
-            var expiryInMinutes = int.Parse(jwtSettings["ExpiryInMinutes"] ?? "240");
+            var expiryInMinutes = ResolveExpiryMinutes(request.Client);
 
             return Ok(new AuthResponse
             {
@@ -170,13 +168,32 @@ namespace CmdNext.Api.Controllers
             });
         }
 
-        private string GenerateJwtToken(User user)
+        /// <summary>
+        /// Token lifetime for a client. Mobile is deliberately long-lived: it is a personal app,
+        /// the token sits in the device keychain, and there is no refresh flow to renew it
+        /// silently. Web keeps the short lifetime — a browser session is the riskier place for
+        /// a long-lived token.
+        /// </summary>
+        private int ResolveExpiryMinutes(string? client)
+        {
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var isMobile = string.Equals(client, "mobile", StringComparison.OrdinalIgnoreCase);
+
+            var key = isMobile ? "MobileExpiryInMinutes" : "ExpiryInMinutes";
+            var fallback = isMobile ? 525600 : 240;
+
+            return int.TryParse(jwtSettings[key], out var minutes) && minutes > 0
+                ? minutes
+                : fallback;
+        }
+
+        private string GenerateJwtToken(User user, string? client)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
             var secretKey = jwtSettings["SecretKey"] ?? "CmdNextDefaultSecretKeyChangeInProduction";
             var issuer = jwtSettings["Issuer"] ?? "CmdNextAPI";
             var audience = jwtSettings["Audience"] ?? "CmdNextClient";
-            var expiryInMinutes = int.Parse(jwtSettings["ExpiryInMinutes"] ?? "240");
+            var expiryInMinutes = ResolveExpiryMinutes(client);
 
             var tokenHandler = new JwtSecurityTokenHandler();
             tokenHandler.OutboundClaimTypeMap.Clear();
@@ -218,12 +235,23 @@ namespace CmdNext.Api.Controllers
         public string Password { get; set; } = string.Empty;
         public string? FirstName { get; set; }
         public string? LastName { get; set; }
+
+        /// <summary>See <see cref="LoginRequest.Client"/>.</summary>
+        public string? Client { get; set; }
     }
 
     public class LoginRequest
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Which client is signing in: "mobile" gets a long-lived token, anything else gets the
+        /// short web lifetime. There is no refresh-token flow, so the lifetime is the whole
+        /// session — re-authenticating every few hours on a personal phone app is not worth it,
+        /// while a browser on a shared machine should still expire quickly.
+        /// </summary>
+        public string? Client { get; set; }
     }
 
     public class AuthResponse

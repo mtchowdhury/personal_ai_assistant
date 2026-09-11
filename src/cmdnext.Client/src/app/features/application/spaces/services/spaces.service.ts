@@ -153,6 +153,7 @@ export interface EntryListItem {
   status?: string | null;
   source: string;
   createdOn?: string | null;
+  updatedOn?: string | null;
 }
 
 export interface CreateEntryRequest {
@@ -193,6 +194,8 @@ export interface EntryQuery {
   status?: string | null;
   from?: string | null;
   to?: string | null;
+  /** "occurred" (default) or "updated" — last-modified first. */
+  sort?: 'occurred' | 'updated' | null;
   take?: number;
 }
 
@@ -218,7 +221,9 @@ export interface SearchResult {
   type: string;
   title: string;
   snippet: string;
+  tags: string[];
   occurredOn?: string | null;
+  updatedOn?: string | null;
   rank: number;
 }
 
@@ -304,6 +309,7 @@ export class SpacesService {
     if (query.status) params.push(`Status=${encodeURIComponent(query.status)}`);
     if (query.from) params.push(`From=${encodeURIComponent(query.from)}`);
     if (query.to) params.push(`To=${encodeURIComponent(query.to)}`);
+    if (query.sort) params.push(`Sort=${encodeURIComponent(query.sort)}`);
     if (query.take) params.push(`Take=${query.take}`);
     for (const tag of query.tags ?? []) params.push(`Tags=${encodeURIComponent(tag)}`);
     const q = params.length ? `?${params.join('&')}` : '';
@@ -359,8 +365,20 @@ export class SpacesService {
     return this.http.get<Attachment[]>(`${this.baseUrl}/${spaceId}/attachments${q}`);
   }
 
+  /**
+   * Raw endpoint URL. Not usable as a plain href: the endpoint is [Authorize]d and the bearer
+   * token only rides on HttpClient requests, so a direct browser navigation gets a 401.
+   * Use downloadAttachment() instead.
+   */
   attachmentUrl(spaceId: string, attachmentId: string): string {
     return `${this.baseUrl}/${spaceId}/attachments/${attachmentId}`;
+  }
+
+  /** Fetches the file through HttpClient so the auth interceptor can attach the token. */
+  downloadAttachment(spaceId: string, attachmentId: string): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/${spaceId}/attachments/${attachmentId}`, {
+      responseType: 'blob'
+    });
   }
 
   deleteAttachment(spaceId: string, attachmentId: string): Observable<unknown> {

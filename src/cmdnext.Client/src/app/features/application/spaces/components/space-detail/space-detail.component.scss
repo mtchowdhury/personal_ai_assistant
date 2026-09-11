@@ -60,6 +60,10 @@
     cursor: pointer;
 
     &:hover { background: #f0f0f0; }
+    // Buttons carry the global :focus ring on plain mousedown; scope it to keyboard use.
+    &:focus { outline: none; }
+    &:focus-visible { outline: 2px solid #0078d4; outline-offset: 2px; }
+    &.active { background: #eef2ff; border-color: #2f6fed; color: #2f6fed; }
     &.primary { background: #2f6fed; color: #fff; border-color: #2f6fed; &:hover { background: #2a63d4; } }
   }
 }
@@ -233,6 +237,9 @@
 .entries-panel {
   min-height: 0;
   max-height: 100%;
+  // A grid item defaults to min-width:auto, which lets wide content (an unbroken token or URL
+  // in a card) stretch this column past the viewport and scroll the whole page sideways.
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
@@ -244,6 +251,57 @@
   overflow-y: auto;
   // Room for the last card's shadow/border against the scroll edge.
   padding-bottom: 4px;
+}
+
+.search-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+
+  &:focus-within { border-color: #2f6fed; }
+
+  .search-icon { font-size: 13px; flex: 0 0 auto; }
+
+  .search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    background: transparent;
+  }
+
+  .search-status { color: #999; flex: 0 0 auto; }
+
+  .search-clear {
+    flex: 0 0 auto;
+    border: none;
+    background: none;
+    color: #888;
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 4px;
+
+    &:hover { color: #333; }
+    &:focus { outline: none; }
+    &:focus-visible { outline: 2px solid #0078d4; outline-offset: 2px; }
+  }
+
+  .search-advanced {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: #2f6fed;
+    text-decoration: none;
+    white-space: nowrap;
+
+    &:hover { text-decoration: underline; }
+  }
 }
 
 .node-summary {
@@ -281,6 +339,10 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  // Same reason as .entries-panel: without this a flex item refuses to shrink below its
+  // content's intrinsic width.
+  min-width: 0;
+  max-width: 100%;
   padding: 14px 16px;
   border: 1px solid #e0e0e0;
   border-radius: 10px;
@@ -311,6 +373,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    min-width: 0;
     font-size: 11px;
     color: #999;
     text-transform: uppercase;
@@ -337,17 +400,36 @@
     text-overflow: ellipsis;
   }
 
+  // Imported notes contain unbroken strings (tokens, URLs, code) with no spaces to wrap on,
+  // so `overflow-wrap` alone is not enough — these are clamped to a single ellipsized line.
+  .entry-title,
+  .entry-excerpt {
+    min-width: 0;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .entry-title { font-size: 15px; font-weight: 600; }
   .entry-excerpt { font-size: 13px; color: #666; }
 
   .entry-tags {
     display: flex;
+    // Notes carry several tags; wrapping keeps a long set inside the card instead of
+    // widening it.
+    flex-wrap: wrap;
     gap: 6px;
     margin-top: 4px;
+    min-width: 0;
   }
 
   .tag {
     font-size: 11px;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: #2f6fed;
     background: #eef2ff;
     padding: 2px 8px;

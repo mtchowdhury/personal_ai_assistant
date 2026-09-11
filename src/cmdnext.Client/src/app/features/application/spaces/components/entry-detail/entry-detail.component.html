@@ -20,10 +20,34 @@
           {{ isEditingBody ? '👁 Preview' : '✏️ Edit' }}
         </button>
       </div>
+      <!-- Writes plain markdown into the textarea, so the stored format is unchanged.
+           mousedown is prevented so clicking a button never steals the selection. -->
+      <div class="format-bar" *ngIf="isEditingBody" (mousedown)="$event.preventDefault()">
+        <button type="button" (click)="wrapSelection('**')" title="Bold (Ctrl+B)"><strong>B</strong></button>
+        <button type="button" (click)="wrapSelection('*')" title="Italic (Ctrl+I)"><em>I</em></button>
+        <button type="button" (click)="wrapSelection('`')" title="Inline code" class="mono">&lt;/&gt;</button>
+        <span class="sep"></span>
+        <button type="button" (click)="prefixLines('### ')" title="Heading">H</button>
+        <button type="button" (click)="prefixLines('- ')" title="Bullet list">•</button>
+        <button type="button" (click)="prefixLines('1. ')" title="Numbered list">1.</button>
+        <button type="button" (click)="prefixLines('- [ ] ')" title="Checklist">☑</button>
+        <span class="sep"></span>
+        <button type="button" (click)="prefixLines('> ')" title="Quote">❝</button>
+        <button type="button" (click)="insertLink()" title="Link">🔗</button>
+      </div>
       <textarea id="body" class="body-field" [(ngModel)]="body"
                 (input)="autoGrow($event)" #bodyTextarea
+                (keydown)="onBodyKeydown($event)"
                 placeholder="Markdown notes…" *ngIf="isEditingBody"></textarea>
-      <div class="body-rendered" *ngIf="!isEditingBody" (click)="toggleEditBody()"
+
+      <!-- Live preview while editing: the markdown characters stay in the field above, but
+           the formatted result is visible as you type rather than only after switching. -->
+      <div class="live-preview" *ngIf="isEditingBody && body.trim()">
+        <span class="live-preview-label">Preview</span>
+        <div class="body-rendered plain" [innerHTML]="body | chatMarkdown"></div>
+      </div>
+
+      <div class="body-rendered" *ngIf="!isEditingBody" (click)="onRenderedBodyClick($event)"
            [innerHTML]="body | chatMarkdown"></div>
     </section>
 
@@ -102,7 +126,10 @@
       </div>
       <div class="attachment-list" *ngIf="attachments.length">
         <div class="attachment-row" *ngFor="let a of attachments">
-          <a [href]="attachmentUrl(a)" target="_blank">{{ a.fileName }}</a>
+          <button type="button" class="attachment-link" (click)="openAttachment(a)"
+                  [disabled]="downloadingAttachmentId === a.id">
+            {{ a.fileName }}<span *ngIf="downloadingAttachmentId === a.id"> …</span>
+          </button>
           <button type="button" class="link-btn danger" (click)="deleteAttachment(a)">Remove</button>
         </div>
       </div>

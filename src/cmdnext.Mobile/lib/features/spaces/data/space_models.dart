@@ -241,6 +241,7 @@ class EntryListItem {
     this.dueOn,
     this.status,
     this.createdOn,
+    this.updatedOn,
   });
 
   final String id;
@@ -255,10 +256,15 @@ class EntryListItem {
   final String? status;
   final String source;
   final DateTime? createdOn;
+  final DateTime? updatedOn;
 
   /// What the timeline sorts and groups by: when it happened, falling back to
   /// when it was written.
   DateTime? get timelineDate => occurredOn ?? createdOn;
+
+  /// Last-modified, for spaces ordered by recency of editing rather than by the
+  /// date the note is about (a reference archive, say).
+  DateTime? get modifiedDate => updatedOn ?? createdOn;
 
   factory EntryListItem.fromJson(Map<String, dynamic> j) => EntryListItem(
     id: (j['id'] ?? '').toString(),
@@ -276,6 +282,7 @@ class EntryListItem {
     status: j['status'] as String?,
     source: (j['source'] ?? 'manual').toString(),
     createdOn: parseApiInstant(j['createdOn']),
+    updatedOn: parseApiInstant(j['updatedOn']),
   );
 }
 
@@ -350,9 +357,11 @@ class SearchResult {
     required this.title,
     required this.snippet,
     required this.rank,
+    required this.tags,
     this.nodeId,
     this.nodePath,
     this.occurredOn,
+    this.updatedOn,
   });
 
   final String entryId;
@@ -363,8 +372,25 @@ class SearchResult {
   final String type;
   final String title;
   final String snippet;
+  final List<String> tags;
   final DateTime? occurredOn;
+  final DateTime? updatedOn;
   final double rank;
+
+  /// Search returns its own shape; map it onto the list item so one card widget
+  /// renders both the timeline and filter results.
+  EntryListItem toListItem() => EntryListItem(
+    id: entryId,
+    nodeId: nodeId,
+    nodePath: nodePath,
+    type: type,
+    title: title,
+    excerpt: snippet,
+    tags: tags,
+    source: 'manual',
+    occurredOn: occurredOn,
+    updatedOn: updatedOn,
+  );
 
   factory SearchResult.fromJson(Map<String, dynamic> j) => SearchResult(
     entryId: (j['entryId'] ?? '').toString(),
@@ -375,8 +401,55 @@ class SearchResult {
     type: (j['type'] ?? 'note').toString(),
     title: (j['title'] ?? '').toString(),
     snippet: (j['snippet'] ?? '').toString(),
+    tags: ((j['tags'] as List?) ?? const [])
+        .map((e) => e.toString())
+        .toList(growable: false),
     occurredOn: parseApiDate(j['occurredOn']),
+    updatedOn: parseApiInstant(j['updatedOn']),
     rank: (j['rank'] as num?)?.toDouble() ?? 0,
+  );
+}
+
+/// A file attached to an entry (or a node). Mirrors AttachmentDto.
+class SpaceAttachment {
+  const SpaceAttachment({
+    required this.id,
+    required this.spaceId,
+    required this.fileName,
+    required this.contentType,
+    required this.sizeBytes,
+    this.nodeId,
+    this.entryId,
+    this.createdOn,
+  });
+
+  final String id;
+  final String spaceId;
+  final String? nodeId;
+  final String? entryId;
+  final String fileName;
+  final String contentType;
+  final int sizeBytes;
+  final DateTime? createdOn;
+
+  /// "1.4 MB" / "812 KB" — what the row shows next to the name.
+  String get readableSize {
+    if (sizeBytes >= 1024 * 1024) {
+      return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    if (sizeBytes >= 1024) return '${(sizeBytes / 1024).round()} KB';
+    return '$sizeBytes B';
+  }
+
+  factory SpaceAttachment.fromJson(Map<String, dynamic> j) => SpaceAttachment(
+    id: (j['id'] ?? '').toString(),
+    spaceId: (j['spaceId'] ?? '').toString(),
+    nodeId: j['nodeId']?.toString(),
+    entryId: j['entryId']?.toString(),
+    fileName: (j['fileName'] ?? '').toString(),
+    contentType: (j['contentType'] ?? 'application/octet-stream').toString(),
+    sizeBytes: (j['sizeBytes'] as num?)?.toInt() ?? 0,
+    createdOn: parseApiInstant(j['createdOn']),
   );
 }
 

@@ -354,7 +354,16 @@ namespace CmdNext.Service.Services
             }
 
             var take = Math.Clamp(query.Take, 1, 500);
-            var rows = await q.OrderByDescending(e => e.OccurredOn ?? e.CreatedOn).Take(take).ToListAsync();
+
+            // "updated" puts the most recently touched entry first — the useful order for a
+            // reference archive, where OccurredOn is the original note date and rarely changes.
+            // Sorting has to happen in SQL: `take` caps the rows, so ordering client-side would
+            // only reorder an arbitrary slice of the space.
+            var ordered = string.Equals(query.Sort, "updated", StringComparison.OrdinalIgnoreCase)
+                ? q.OrderByDescending(e => e.UpdatedOn ?? e.CreatedOn)
+                : q.OrderByDescending(e => e.OccurredOn ?? e.CreatedOn);
+
+            var rows = await ordered.Take(take).ToListAsync();
 
             var nodePaths = await GetNodePathsAsync(spaceId, rows.Select(r => r.NodeId));
             return rows.Select(e => ToListItemDto(e, nodePaths)).ToList();
@@ -999,7 +1008,8 @@ namespace CmdNext.Service.Services
             DueOn = e.DueOn,
             Status = e.Status,
             Source = e.Source,
-            CreatedOn = e.CreatedOn
+            CreatedOn = e.CreatedOn,
+            UpdatedOn = e.UpdatedOn
         };
 
         private static SearchResultDto ToSearchResult(Entry e, Dictionary<(Guid, Guid), string> nodePaths, double rank, string snippet) => new()
@@ -1012,7 +1022,9 @@ namespace CmdNext.Service.Services
             Type = e.Type,
             Title = e.Title,
             Snippet = snippet,
+            Tags = e.Tags.ToList(),
             OccurredOn = e.OccurredOn,
+            UpdatedOn = e.UpdatedOn,
             Rank = rank
         };
 
