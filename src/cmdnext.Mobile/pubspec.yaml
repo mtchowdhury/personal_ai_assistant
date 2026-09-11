@@ -15,6 +15,10 @@ dependencies:
   go_router: ^18.0.1
   image_picker: ^1.2.3
   intl: ^0.20.3
+  # Attachments are fetched through Dio (the endpoint needs the bearer token),
+  # written to a cache file, then handed to the platform viewer.
+  open_filex: ^4.7.0
+  path_provider: ^2.1.5
   package_info_plus: ^10.2.1
   shared_preferences: ^2.5.5
 

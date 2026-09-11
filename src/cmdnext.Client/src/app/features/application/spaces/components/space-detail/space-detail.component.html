@@ -7,7 +7,7 @@
     </div>
     <div class="header-right" *ngIf="space">
       <a [routerLink]="['/ai-chat']" [queryParams]="{ spaceId: spaceId }" class="header-btn">💬 Chat in this space</a>
-      <a [routerLink]="['/spaces', 'search']" [queryParams]="{ spaceId: spaceId }" class="header-btn">🔍 Search</a>
+
       <a [routerLink]="['/spaces', spaceId, 'settings']" class="header-btn">⚙ Settings</a>
       <button type="button" class="header-btn primary" (click)="addEntry()">+ Entry</button>
     </div>
@@ -42,7 +42,7 @@
                   (dragleave)="onNodeDragLeave(null)"
                   (drop)="onNodeDrop(null, $event)">
             <span class="tree-label">All entries</span>
-            <span class="tree-count" *ngIf="!entriesLoading">{{ entries.length }}</span>
+            <span class="tree-count" *ngIf="!entriesLoading && !searchActive">{{ entries.length }}</span>
           </button>
           <button type="button" class="tree-item" *ngFor="let n of flatTree"
                   [class.active]="selectedNodeId === n.id"
@@ -64,12 +64,29 @@
           <p *ngIf="n.summary">{{ n.summary }}</p>
         </div>
 
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input type="text" #searchInput class="search-input"
+                 [(ngModel)]="searchTerm" (input)="onSearchInput()"
+                 (keyup.escape)="clearSearch()"
+                 placeholder="Filter by title, text or tag…" />
+          <span class="search-status" *ngIf="searchLoading">…</span>
+          <button type="button" class="search-clear" *ngIf="searchTerm" (click)="clearSearch()"
+                  title="Clear">✕</button>
+          <a [routerLink]="['/spaces', 'search']" [queryParams]="{ spaceId: spaceId }"
+             class="search-advanced">Advanced</a>
+        </div>
+
         <!-- The scroll container is never removed from the DOM: an *ngIf here would destroy it
              on every reload, discarding the scroll position (and the ViewChild with it). -->
         <div class="entries-scroll" #entriesScroll>
           <app-loading-spinner *ngIf="entriesLoading" label="Loading entries…"></app-loading-spinner>
 
-          <div *ngIf="!entriesLoading && entries.length === 0" class="empty">
+          <div *ngIf="!entriesLoading && entries.length === 0 && searchActive" class="empty">
+            No notes match “{{ searchTerm }}”.
+          </div>
+
+          <div *ngIf="!entriesLoading && entries.length === 0 && !searchActive" class="empty">
             No entries here yet.
             <button type="button" class="link-btn" (click)="addEntry()">Add one</button>
           </div>

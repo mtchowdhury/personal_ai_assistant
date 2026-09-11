@@ -62,6 +62,12 @@ class _Body extends ConsumerWidget {
     final timeline = ref.watch(spaceTimelineProvider(space.id));
     final nodesAsync = ref.watch(spaceNodesProvider(space.id));
     final selectedNode = ref.watch(nodeFilterProvider(space.id));
+    final filterTerm = ref.watch(spaceFilterProvider(space.id)).trim();
+    final filtering = filterTerm.isNotEmpty;
+    final filterResults = ref.watch(spaceFilterResultsProvider(space.id));
+
+    // While filtering, the list shows ranked results; otherwise the timeline.
+    final listed = filtering ? filterResults : timeline;
 
     return RefreshIndicator(
       onRefresh: () async => ref.invalidate(spaceTimelineProvider(space.id)),
@@ -72,11 +78,18 @@ class _Body extends ConsumerWidget {
             title: Text(space.name),
             actions: [
               IconButton(
-                tooltip: 'Search',
-                icon: const Icon(Icons.search_rounded),
+                tooltip: 'Advanced search',
+                icon: const Icon(Icons.manage_search_rounded),
                 onPressed: () => context.push('/spaces/search?in=${space.id}'),
               ),
             ],
+          ),
+
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, Gap.sm),
+              child: _FilterField(spaceId: space.id),
+            ),
           ),
 
           if (space.description case final d? when d.trim().isNotEmpty)
@@ -102,7 +115,7 @@ class _Body extends ConsumerWidget {
               ),
             ),
 
-          timeline.when(
+          listed.when(
             loading: () => const SliverFillRemaining(
               hasScrollBody: false,
               child: LoadingState(),
@@ -111,19 +124,29 @@ class _Body extends ConsumerWidget {
               hasScrollBody: false,
               child: ErrorState(
                 error: e,
-                onRetry: () => ref.invalidate(spaceTimelineProvider(space.id)),
+                onRetry: () => ref.invalidate(
+                  filtering
+                      ? spaceFilterResultsProvider(space.id)
+                      : spaceTimelineProvider(space.id),
+                ),
               ),
             ),
             data: (entries) => entries.isEmpty
                 ? SliverFillRemaining(
                     hasScrollBody: false,
-                    child: EmptyState(
-                      icon: space.icon,
-                      title: selectedNode == null
-                          ? 'Nothing here yet'
-                          : 'Nothing under this filter',
-                      message: 'Tap + to add the first entry.',
-                    ),
+                    child: filtering
+                        ? EmptyState(
+                            icon: space.icon,
+                            title: 'No matches',
+                            message: 'Nothing here matches “$filterTerm”.',
+                          )
+                        : EmptyState(
+                            icon: space.icon,
+                            title: selectedNode == null
+                                ? 'Nothing here yet'
+                                : 'Nothing under this filter',
+                            message: 'Tap + to add the first entry.',
+                          ),
                   )
                 : SliverPadding(
                     padding: const EdgeInsets.fromLTRB(Gap.lg, 0, Gap.lg, 96),
@@ -146,6 +169,62 @@ class _Body extends ConsumerWidget {
 /// Horizontally scrolling chips for the space's nodes, flattened rather than
 /// nested — a phone-width indent-based tree would run out of room after two
 /// levels, so depth is shown with a leading dash instead.
+/// Always-present filter box over the space's list. Typing pushes into
+/// [spaceFilterProvider]; the debounce lives in [spaceFilterResultsProvider] so
+/// the field itself stays a plain controlled input.
+class _FilterField extends ConsumerStatefulWidget {
+  const _FilterField({required this.spaceId});
+
+  final String spaceId;
+
+  @override
+  ConsumerState<_FilterField> createState() => _FilterFieldState();
+}
+
+class _FilterFieldState extends ConsumerState<_FilterField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: ref.read(spaceFilterProvider(widget.spaceId)),
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final term = ref.watch(spaceFilterProvider(widget.spaceId));
+
+    return TextField(
+      controller: _controller,
+      textInputAction: TextInputAction.search,
+      onChanged: (v) =>
+          ref.read(spaceFilterProvider(widget.spaceId).notifier).set(v),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'Filter by title, text or tag…',
+        prefixIcon: const Icon(Icons.search_rounded, size: 20),
+        suffixIcon: term.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'Clear',
+                icon: const Icon(Icons.close_rounded, size: 18),
+                onPressed: () {
+                  _controller.clear();
+                  ref
+                      .read(spaceFilterProvider(widget.spaceId).notifier)
+                      .clear();
+                },
+              ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+}
+
 class _NodeFilterStrip extends ConsumerWidget {
   const _NodeFilterStrip({
     required this.spaceId,

@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
-import { 
-  HttpRequest, 
-  HttpHandler, 
-  HttpEvent, 
+import {
+  HttpRequest,
+  HttpHandler,
+  HttpEvent,
   HttpInterceptor,
   HttpErrorResponse
 } from '@angular/common/http';
@@ -15,31 +15,54 @@ export class AuthInterceptor implements HttpInterceptor {
   constructor(private authService: AuthService, private router: Router) {}
 
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
-    const token = this.authService.getToken();
-    const isLoggedIn = this.authService.isLoggedIn();
-    const isExpired = this.authService.isTokenExpired();
-
-    // Only add token if user is logged in, token exists, and it's not expired
-    if (token && isLoggedIn && !isExpired) {
-      const authReq = req.clone({
-        setHeaders: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      return next.handle(authReq).pipe(
-        catchError((error: HttpErrorResponse) => {
-          if (error.status === 401) {
-            // Token is invalid - force logout and redirect
-            this.authService.logout(false);
-            this.router.navigate(['/auth/login']);
-          }
-          return throwError(() => error);
-        })
-      );
+    // The auth endpoints are how a session is obtained; they must not carry a stale token,
+    // and a 401 from them means "wrong password", not "session over".
+    if (req.url.includes('/auth/login') || req.url.includes('/auth/register')) {
+      return next.handle(req);
     }
 
-    // No token or expired - send request as-is
-    // The API will return 401 which will be handled by the component
-    return next.handle(req);
+    const token = this.authService.getToken();
+
+    // An expired token used to be sent as a bare request whose 401 nothing handled, so the
+    // page sat spinning or showed a generic error. End the session up front instead: the
+    // outcome is the same (the token cannot be renewed — there is no refresh flow) but the
+    // user lands on the login page rather than on a stuck screen.
+    if (token && this.authService.isTokenExpired()) {
+      this.endSession();
+      return throwError(() => new HttpErrorResponse({
+        status: 401,
+        statusText: 'Unauthorized',
+        url: req.url,
+        error: { message: 'Your session has expired. Please sign in again.' }
+      }));
+    }
+
+    const authReq = token
+      ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
+      : req;
+
+    // Attached in both cases: a token can also be rejected server-side (revoked, restarted
+    // with a new signing key), and that 401 needs the same handling.
+    return next.handle(authReq).pipe(
+      catchError((error: HttpErrorResponse) => {
+        if (error.status === 401) this.endSession();
+        return throwError(() => error);
+      })
+    );
+  }
+
+  /** Clears the stored session and sends the user to login, once. */
+  private endSession(): void {
+    // Already on the login page (or heading there) — don't stack navigations.
+    if (this.router.url.startsWith('/auth/')) {
+      this.authService.logout(false);
+      return;
+    }
+
+    this.authService.logout(false);
+    // returnUrl so the user comes back to what they were looking at after signing in.
+    this.router.navigate(['/auth/login'], {
+      queryParams: { returnUrl: this.router.url }
+    });
   }
 }

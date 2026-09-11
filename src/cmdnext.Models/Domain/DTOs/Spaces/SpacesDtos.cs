@@ -150,6 +150,7 @@ namespace CmdNext.Models.Domain.DTOs.Spaces
         public string? Status { get; set; }
         public string Source { get; set; } = "manual";
         public DateTime? CreatedOn { get; set; }
+        public DateTime? UpdatedOn { get; set; }
     }
 
     public class CreateEntryRequest
@@ -201,6 +202,12 @@ namespace CmdNext.Models.Domain.DTOs.Spaces
         public DateTime? From { get; set; }
         public DateTime? To { get; set; }
         public string? Status { get; set; }
+        /// <summary>
+        /// Ordering for the result list: "occurred" (default — OccurredOn, falling back to
+        /// CreatedOn) or "updated" (last-modified first, falling back to CreatedOn). Reference
+        /// spaces like an imported note archive want "updated"; dated spaces want "occurred".
+        /// </summary>
+        public string? Sort { get; set; }
         public int Take { get; set; } = 100;
     }
 
@@ -235,7 +242,9 @@ namespace CmdNext.Models.Domain.DTOs.Spaces
         public string Type { get; set; } = string.Empty;
         public string Title { get; set; } = string.Empty;
         public string Snippet { get; set; } = string.Empty;
+        public List<string> Tags { get; set; } = new();
         public DateTime? OccurredOn { get; set; }
+        public DateTime? UpdatedOn { get; set; }
         public double Rank { get; set; }
     }
 

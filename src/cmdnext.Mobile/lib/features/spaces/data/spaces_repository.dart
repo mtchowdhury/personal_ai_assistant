@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_client.dart';
+import '../../../core/api/api_exception.dart';
 import 'space_models.dart';
 
 /// Talks to `/spaces`.
@@ -103,12 +106,15 @@ class SpacesRepository {
     DateTime? from,
     DateTime? to,
     String? status,
+    /// "occurred" (default) or "updated" — last-modified first.
+    String? sort,
     int take = 100,
   }) async => (await _api.getList(
     'spaces/$spaceId/entries',
     query: {
       'includeDescendants': includeDescendants,
       'take': take,
+      if (sort != null) 'sort': sort,
       if (nodeId != null) 'nodeId': nodeId,
       if (type != null) 'type': type,
       if (tags != null && tags.isNotEmpty) 'tags': tags,
@@ -219,6 +225,65 @@ class SpacesRepository {
         .map((e) => SearchResult.fromJson(e.cast<String, dynamic>()))
         .toList(growable: false);
   }
+
+  // ---- Attachments ----
+
+  Future<List<SpaceAttachment>> attachments(
+    String spaceId, {
+    String? entryId,
+    String? nodeId,
+  }) async => (await _api.getList(
+    'spaces/$spaceId/attachments',
+    query: {
+      if (entryId != null) 'entryId': entryId,
+      if (nodeId != null) 'nodeId': nodeId,
+    },
+  )).map(SpaceAttachment.fromJson).toList(growable: false);
+
+  /// Fetches an attachment's bytes.
+  ///
+  /// The endpoint requires the bearer token, so the file cannot be handed to a
+  /// URL-based viewer directly — going through Dio keeps the auth interceptor
+  /// in play, exactly as the finance receipts do.
+  Future<Uint8List> attachmentBytes(String spaceId, String attachmentId) async {
+    try {
+      final response = await _api.raw.get<List<int>>(
+        'spaces/$spaceId/attachments/$attachmentId',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return Uint8List.fromList(response.data ?? const []);
+    } on DioException catch (e) {
+      throw ApiException.from(e);
+    }
+  }
+
+  Future<SpaceAttachment> uploadAttachment(
+    String spaceId, {
+    required String filePath,
+    required String fileName,
+    String? entryId,
+    String? nodeId,
+  }) async {
+    final form = FormData.fromMap({
+      'file': await MultipartFile.fromFile(filePath, filename: fileName),
+    });
+    try {
+      final response = await _api.raw.post<Map<String, dynamic>>(
+        'spaces/$spaceId/attachments',
+        data: form,
+        queryParameters: {
+          if (entryId != null) 'entryId': entryId,
+          if (nodeId != null) 'nodeId': nodeId,
+        },
+      );
+      return SpaceAttachment.fromJson(response.data ?? const {});
+    } on DioException catch (e) {
+      throw ApiException.from(e);
+    }
+  }
+
+  Future<void> deleteAttachment(String spaceId, String attachmentId) =>
+      _api.delete<dynamic>('spaces/$spaceId/attachments/$attachmentId');
 }
 
 final spacesRepositoryProvider = Provider<SpacesRepository>(
