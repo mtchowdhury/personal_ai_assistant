@@ -117,6 +117,14 @@ class _Body extends ConsumerStatefulWidget {
 class _BodyState extends ConsumerState<_Body> {
   late final _title = TextEditingController(text: widget.entry.title);
   late final _body = TextEditingController(text: widget.entry.body);
+  /// Drives whether the formatting bar is shown — it belongs above the keyboard
+  /// while the body is being edited, not permanently on the screen.
+  final _bodyFocus = FocusNode();
+
+  /// Set while a formatting button is being tapped. The body's `onTapOutside`
+  /// unfocuses the field, which would dismiss the keyboard and hide the bar
+  /// the moment a button is pressed; this suppresses that for the tap.
+  bool _formatBarTap = false;
   late final Map<String, Object?> _fieldValues = Map.of(widget.entry.fields);
 
   EntryRef get _ref => (spaceId: widget.spaceId, entryId: widget.entryId);
@@ -140,6 +148,173 @@ class _BodyState extends ConsumerState<_Body> {
     return out;
   }
 
+  // ---- Formatting toolbar ----
+  //
+  // Writes plain markdown into the field, exactly as the web toolbar does, so
+  // the stored format stays what the search index, the AI tools and the web
+  // client already read.
+
+  /// Wraps the selection in [marker] (bold, italic, code), or unwraps it when
+  /// the markers are already there so the button toggles.
+  void _wrapSelection(String marker) {
+    final sel = _body.selection;
+    if (!sel.isValid) return;
+
+    final text = _body.text;
+    final selected = text.substring(sel.start, sel.end);
+    final before = text.substring(0, sel.start);
+    final after = text.substring(sel.end);
+
+    if (before.endsWith(marker) && after.startsWith(marker)) {
+      final updated = before.substring(0, before.length - marker.length) +
+          selected +
+          after.substring(marker.length);
+      _apply(updated, sel.start - marker.length, sel.end - marker.length);
+      return;
+    }
+
+    final placeholder = selected.isEmpty ? 'text' : selected;
+    _apply(
+      '$before$marker$placeholder$marker$after',
+      sel.start + marker.length,
+      sel.start + marker.length + placeholder.length,
+    );
+  }
+
+  /// Applies a line prefix (heading, bullet, number, task, quote) to every line
+  /// the selection touches; re-applying the same prefix strips it.
+  void _prefixLines(String prefix) {
+    final sel = _body.selection;
+    if (!sel.isValid) return;
+
+    final text = _body.text;
+    // Dart's lastIndexOf throws on a negative start (JS returns -1), so guard
+    // the caret-at-0 case rather than letting it crash.
+    final from = sel.start == 0 ? 0 : text.lastIndexOf('\n', sel.start - 1) + 1;
+    final toIndex = text.indexOf('\n', sel.end);
+    final to = toIndex == -1 ? text.length : toIndex;
+
+    final lines = text.substring(from, to).split('\n');
+    final isNumbered = prefix == '1. ';
+    final existing = isNumbered ? RegExp(r'^\d+[.)]\s+') : null;
+
+    // Only lines with content decide a toggle-off; a blank line would satisfy
+    // `every` vacuously and make the button a no-op on an empty line.
+    final contentLines = lines.where((l) => l.trim().isNotEmpty);
+    final allPrefixed = contentLines.isNotEmpty &&
+        contentLines.every(
+          (l) => existing != null ? existing.hasMatch(l) : l.startsWith(prefix),
+        );
+
+    final stripAny = RegExp(
+      r'^(#{1,6}\s+|[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+[.)]\s+|>\s+)',
+    );
+
+    final updated = <String>[];
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i];
+      if (allPrefixed) {
+        if (line.trim().isEmpty) {
+          updated.add(line);
+        } else {
+          updated.add(
+            existing != null
+                ? line.replaceFirst(existing, '')
+                : line.substring(prefix.length),
+          );
+        }
+        continue;
+      }
+      if (line.trim().isEmpty) {
+        // A lone empty line becomes a bare marker to type into.
+        updated.add(lines.length == 1 ? (isNumbered ? '1. ' : prefix) : line);
+        continue;
+      }
+      final bare = line.replaceFirst(stripAny, '');
+      updated.add('${isNumbered ? '${i + 1}. ' : prefix}$bare');
+    }
+
+    final replacement = updated.join('\n');
+    final result = text.substring(0, from) + replacement + text.substring(to);
+
+    // Starting a fresh list puts the caret after the marker, ready to type.
+    if (lines.length == 1 && lines[0].trim().isEmpty && !allPrefixed) {
+      final caret = from + replacement.length;
+      _apply(result, caret, caret);
+    } else {
+      _apply(result, from, from + replacement.length);
+    }
+  }
+
+  /// The formatting bar. Buttons act on the field's current selection and are
+  /// wrapped so the field never loses focus (and the keyboard never dismisses)
+  /// when one is tapped.
+  Widget _buildFormatBar(ColorScheme scheme) {
+    Widget button(String label, VoidCallback onTap, {String? tooltip}) {
+      final child = InkWell(
+        borderRadius: BorderRadius.circular(8),
+        // onTapDown fires before the field's onTapOutside, so the guard is
+        // already up by the time that runs; it is lowered on the next frame.
+        onTapDown: (_) => _formatBarTap = true,
+        onTapCancel: () => _formatBarTap = false,
+        onTap: () {
+          onTap();
+          _bodyFocus.requestFocus();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _formatBarTap = false;
+          });
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 15,
+              height: 1.1,
+              color: scheme.onSurface,
+            ),
+          ),
+        ),
+      );
+      return tooltip == null ? child : Tooltip(message: tooltip, child: child);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: Gap.sm),
+      child: Material(
+        color: scheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(10),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.symmetric(horizontal: Gap.xs),
+          child: Row(
+            children: [
+              button('B', () => _wrapSelection('**'), tooltip: 'Bold'),
+              button('I', () => _wrapSelection('*'), tooltip: 'Italic'),
+              button('< >', () => _wrapSelection('`'), tooltip: 'Code'),
+              const SizedBox(width: Gap.xs),
+              button('H', () => _prefixLines('### '), tooltip: 'Heading'),
+              button('•', () => _prefixLines('- '), tooltip: 'Bullet list'),
+              button('1.', () => _prefixLines('1. '), tooltip: 'Numbered list'),
+              button('☑', () => _prefixLines('- [ ] '), tooltip: 'Checklist'),
+              const SizedBox(width: Gap.xs),
+              button('❝', () => _prefixLines('> '), tooltip: 'Quote'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Writes new text and selection in one go so the field does not bounce the
+  /// caret to the end.
+  void _apply(String text, int start, int end) {
+    _body.value = TextEditingValue(
+      text: text,
+      selection: TextSelection(baseOffset: start, extentOffset: end),
+    );
+  }
+
   /// Enter inside a list item continues the list; Enter on an item that is
   /// still empty ends it instead. Mirrors the web editor so the two behave the
   /// same way.
@@ -155,7 +330,8 @@ class _BodyState extends ConsumerState<_Body> {
 
     final caret = selection.baseOffset;
     final text = _body.text;
-    final lineStart = text.lastIndexOf('\n', caret - 1) + 1;
+    // See _prefixLines: lastIndexOf throws on a negative start index.
+    final lineStart = caret == 0 ? 0 : text.lastIndexOf('\n', caret - 1) + 1;
     final match = _listLine.firstMatch(text.substring(lineStart, caret));
     if (match == null) return null;
 
@@ -211,6 +387,11 @@ class _BodyState extends ConsumerState<_Body> {
     // The checklist is derived from the body text, so it has to rebuild as the
     // raw markdown is edited (adding "- [ ] " should make a row appear).
     _body.addListener(_onBodyChanged);
+    _bodyFocus.addListener(_onBodyFocusChanged);
+  }
+
+  void _onBodyFocusChanged() {
+    if (mounted) setState(() {});
   }
 
   /// Rebuilds only when the set of task lines actually changes — every
@@ -227,6 +408,8 @@ class _BodyState extends ConsumerState<_Body> {
   @override
   void dispose() {
     _body.removeListener(_onBodyChanged);
+    _bodyFocus.removeListener(_onBodyFocusChanged);
+    _bodyFocus.dispose();
     _title.dispose();
     _body.dispose();
     super.dispose();
@@ -389,6 +572,7 @@ class _BodyState extends ConsumerState<_Body> {
               },
               child: TextField(
               controller: _body,
+              focusNode: _bodyFocus,
               maxLines: null,
               minLines: 3,
               textCapitalization: TextCapitalization.sentences,
@@ -403,6 +587,9 @@ class _BodyState extends ConsumerState<_Body> {
                 contentPadding: const EdgeInsets.symmetric(vertical: Gap.sm),
               ),
               onTapOutside: (_) {
+                // A tap on the formatting bar is not "outside" as far as the
+                // user is concerned — keep the field focused.
+                if (_formatBarTap) return;
                 FocusScope.of(context).unfocus();
                 if (_body.text != entry.body) {
                   _save(() => controller.save(body: _body.text));
@@ -436,6 +623,10 @@ class _BodyState extends ConsumerState<_Body> {
             ),
           ),
         ],
+
+        // Formatting bar: only while the body is focused, so it reads as part
+        // of the keyboard rather than as permanent page furniture.
+        if (_bodyFocus.hasFocus) _buildFormatBar(scheme),
 
         const SizedBox(height: Gap.lg),
         _AttachmentsSection(spaceId: widget.spaceId, entryId: widget.entryId),
