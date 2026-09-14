@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Where the API lives. Defaults to the the private network hostname, which survives
 /// a host address change; overridable at runtime because there is no public
 /// hostname and the private network device could be renamed.
-const kDefaultServerUrl = 'http://tawhid:8080';
+const kDefaultServerUrl = 'http://localhost:8080';
 
 const _kServerUrlKey = 'server_url';
 const _kTokenKey = 'auth_token';

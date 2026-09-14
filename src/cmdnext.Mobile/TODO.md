@@ -21,7 +21,7 @@ Flutter iOS app replacing the web client on mobile. iOS first, Android later
 
 Reachable **only over the private network**, plain HTTP — there is no public hostname.
 
-- hostname: `http://tawhid:8080` (survives a host address change)
+- hostname: `http://localhost:8080` (survives a host address change)
 - Raw IP: `http://localhost:8080`
 - API base: `<host>/api/v1` — nginx proxies `/api` to the API container
 
