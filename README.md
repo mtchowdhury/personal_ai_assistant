@@ -97,7 +97,7 @@ src/
 ```
 
 **Stack:** .NET 8 · ASP.NET Core · EF Core 8 · PostgreSQL 17 + pgvector + pg_trgm ·
-Angular 17 · TypeScript 5.3 · Flutter/Dart · Serilog · Docker Compose · Microsoft.Extensions.AI
+Angular 17 · TypeScript 5.3 · Flutter/Dart · Serilog · Docker · Microsoft.Extensions.AI
 
 ## Running it
 
