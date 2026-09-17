@@ -2,9 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Where the API lives. Defaults to the the private network hostname, which survives
-/// a host address change; overridable at runtime because there is no public
-/// hostname and the private network device could be renamed.
+/// Where the API lives. Overridable at runtime from the login screen, since a
+/// self-hosted API has no fixed public hostname.
 const kDefaultServerUrl = 'http://localhost:8080';
 
 const _kServerUrlKey = 'server_url';

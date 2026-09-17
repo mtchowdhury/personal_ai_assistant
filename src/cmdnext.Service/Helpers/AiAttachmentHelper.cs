@@ -12,9 +12,8 @@ using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 
 namespace CmdNext.Service.Helpers
 {
-    // Ported from the an earlier reference: converts PDF / DOCX /
-    // XLSX attachments to Markdown so the model can read their content, and passes
-    // images through as base64 data.
+    // Converts PDF / DOCX / XLSX attachments to Markdown so the model can read their
+    // content, and passes images through as base64 data.
     public class AiAttachmentHelper
     {
         private static readonly Dictionary<string, string> ImageMediaTypes = new()

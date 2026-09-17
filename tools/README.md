@@ -12,16 +12,10 @@ python3 tools/notion_tasks_to_sql.py \
     -o dtasks_import.sql
 ```
 
-Then run the script wherever the database lives:
+Then run the script against the database:
 
 ```bash
-# local
 psql -h localhost -U <user> -d cmdnext -f dtasks_import.sql
-```
-
-```powershell
-# deployed (see DEPLOYMENT.md)
-Get-Content dtasks_import.sql | compose exec -T db psql -U cmdnext -d cmdnext
 ```
 
 The generated script is a single transaction — it loads every row or changes nothing —

@@ -370,8 +370,7 @@ class _ServerRow extends ConsumerWidget {
             ),
             const SizedBox(height: Gap.xs),
             Text(
-              'cmdnext is reachable over the private network only. The default is the '
-              'hostname, which survives an IP change.',
+              'The address of your self-hosted API, including the port.',
               style: Theme.of(sheetContext).textTheme.bodySmall,
             ),
             const SizedBox(height: Gap.lg),

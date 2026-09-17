@@ -16,7 +16,7 @@ class ApiException implements Exception {
   bool get isUnauthorized => statusCode == 401;
 
   /// True when the server could not be reached at all — worth suggesting
-  /// the private network specifically, since that is the only route to it.
+  /// the private network, since that is the only route to it.
   bool get isUnreachable => kind == ApiErrorKind.network;
 
   @override
@@ -38,12 +38,12 @@ class ApiException implements Exception {
         final inner = e.error;
         if (inner is SocketException || inner is HttpException) {
           return ApiException(
-            'Cannot reach the server. Check that the private network is connected.',
+            'Cannot reach the server. Check your network connection.',
             kind: ApiErrorKind.network,
           );
         }
         return ApiException(
-          'Cannot reach the server. Check that the private network is connected.',
+          'Cannot reach the server. Check your network connection.',
           kind: ApiErrorKind.network,
         );
 

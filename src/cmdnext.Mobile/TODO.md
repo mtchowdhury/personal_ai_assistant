@@ -19,15 +19,9 @@ Flutter iOS app replacing the web client on mobile. iOS first, Android later
 
 ## Server
 
-Reachable **only over the private network**, plain HTTP — there is no public hostname.
-
-- hostname: `http://localhost:8080` (survives a host address change)
-- Raw IP: `http://localhost:8080`
-- API base: `<host>/api/v1` — nginx proxies `/api` to the API container
-
-Because it is plain HTTP, `Info.plist` needs an ATS exception (see step 2).
-The server URL is editable in-app from the login screen and persisted, so a
-rename or a local dev API does not require a rebuild.
+The API is self-hosted on a private network over plain HTTP, so `Info.plist` carries a
+scoped ATS exception. The server URL is editable in-app from the login screen and
+persisted, so pointing the app at a different host — or a local dev API — needs no rebuild.
 
 ## API facts that shape the client
 

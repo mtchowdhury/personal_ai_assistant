@@ -62,7 +62,7 @@ class EmptyState extends StatelessWidget {
   }
 }
 
-/// Error state with a retry. Network failures get a the private network-specific hint,
+/// Error state with a retry. Network failures get a connectivity hint,
 /// because that is the only way this app can reach its server.
 class ErrorState extends StatelessWidget {
   const ErrorState({super.key, required this.error, this.onRetry});

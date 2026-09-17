@@ -28,24 +28,11 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-		<!-- The API lives on a private-network host and speaks plain HTTP inside
-		     the WireGuard tunnel; there is no public DNS name to get a cert for.
-		     Scoped to those hosts specifically rather than allowing arbitrary
-		     loads, so every other destination still requires HTTPS. -->
+		<!-- The self-hosted API speaks plain HTTP on a private network, so there
+		     is no public DNS name to get a certificate for. Add the host you
+		     point the app at here; every other destination still requires HTTPS. -->
 		<key>NSExceptionDomains</key>
 		<dict>
-			<key>tawhid</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-				<key>NSIncludesSubdomains</key>
-				<true/>
-			</dict>
-			<key>localhost</key>
-			<dict>
-				<key>NSExceptionAllowsInsecureHTTPLoads</key>
-				<true/>
-			</dict>
 			<key>localhost</key>
 			<dict>
 				<key>NSExceptionAllowsInsecureHTTPLoads</key>
